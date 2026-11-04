@@ -19,3 +19,18 @@
   F3: "the same-process part needs the judge kept out of the judged code's reach, or a recorded decision that it is
   accepted." Closed by running the tests where they cannot write what gate.py and its tools use (a container, or a
   different user on the Jenkins agent), or by the user deciding agents' pull requests are trusted that far.
+
+### ticket-sync
+
+Paths relative to `plugins/agent-estate/hooks/`.
+
+- **Issues opened by other people are not synced at all.** Decided in dotfiles' cross-review 08 (2026-10-27): five
+  rounds showed a two-way sync of issues whose authors can rewrite body, title and marker at will keeps opening holes in
+  a ticket store agents act on (findings 1–2, 12–15, 19–21, 23–25, 27–30). `ticket-sync.py` ignores them
+  (`Repo._ticket_of`, `Repo._add`). Closed, if they come to matter, by a one-way snapshot import that a maintainer
+  triggers with a label (labels need triage rights), tying issue to ticket in the local record only, and never pulling
+  the author's later edits.
+- **Only the first 100 comments of an issue are seen.** `gh issue list --json comments` returns at most 100 per issue.
+- **A linked worktree syncs into its own `.scratch/`.** `agent.ticketSync` lives in the shared git config, so a session
+  in a worktree restores every open ticket into the worktree's fresh `.scratch/`. Closed by resolving the main checkout
+  (`git rev-parse --git-common-dir`) in `opted_in()`.
