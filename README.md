@@ -7,11 +7,11 @@ them.
   the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for uv
   Python projects, octoflow-ai's quality gate as `scripts/gate`. `init/apply.py` does what isn't a template file:
   `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its docstring lists every step.
-- **`plugins/agent-estate/`**: a Claude Code plugin whose `init-repo` skill tells Claude how to run the template and
-  which answers to ask the user for. `.claude-plugin/marketplace.json` makes this repo its marketplace.
-
-The global half (the skills and hooks in `~/.claude` that this setup relies on: ticket-sync, cross-review, the
-pre-push gate) is not in here yet; see `TODO.md`.
+- **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
+  session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger,
+  deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the template,
+  and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from skipping
+  it, ticket-sync, and the context handover. `.claude-plugin/marketplace.json` makes this repo its marketplace.
 
 ## Applying it to a repo
 
@@ -66,10 +66,31 @@ reasons):
 
 ## Installing the plugin
 
-```text
-/plugin marketplace add DavidSiegl/agent-estate
-/plugin install agent-estate@agent-estate
+In `~/.claude/settings.json` (dotfiles keeps it there), so that every machine has it:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "agent-estate": { "source": { "source": "github", "repo": "DavidSiegl/agent-estate" }, "autoUpdate": true }
+  },
+  "enabledPlugins": { "agent-estate@agent-estate": true },
+  "permissions": { "deny": ["Bash(gh pr merge:*)"] }
+}
 ```
+
+then `claude plugin install agent-estate@agent-estate` once per machine. Interactively, the same is
+`/plugin marketplace add DavidSiegl/agent-estate` and `/plugin install agent-estate@agent-estate`.
+
+A plugin's own settings may set only `agent` and `subagentStatusLine`, so two things stay with the user:
+
+- **The `gh pr merge` deny rule**, above: in a repo with `automerge`, auto-merge merges pull requests, never an
+  agent. (`core.hooksPath` for the review gate does not need the user's settings: `hooks/git-hooks-path.sh` sets
+  it at session start through `$CLAUDE_ENV_FILE`, for the commands Claude runs only.)
+- **The context handover's token count.** The status line must write the last response's input tokens to
+  `$XDG_RUNTIME_DIR/claude-context-tokens-<session_id>` (`hooks/context-handover.sh`'s header has the details);
+  dotfiles' `statusline-command.sh` does. Without it the handover reminder never fires.
+
+Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
 ## Changing the template
 
