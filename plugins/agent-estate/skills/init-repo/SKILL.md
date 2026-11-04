@@ -26,6 +26,9 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
    | `ticket_sync` | mirror `.scratch/` tickets to GitHub issues: **publishes every open ticket** | ask; never assume yes |
    | `review_gate` | refuse Claude's pushes without a passing cross-review | yes |
    | `python_gate` / `python_package` | octoflow-ai's quality gate, for a uv-managed Python project | yes for such a project |
+   | `ci` | where the gate runs on pull requests: `none`, `jenkins`, `github-actions` | ask; Jenkins needs a job the user sets up |
+   | `jenkins_agent_label` / `jenkins_status_login` | the Jenkins agents allowed to build, and the App login whose status counts | `untrusted`, `davidsiegl-jenkins[bot]` |
+   | `automerge` | merge pull requests into main once CI passes, with no human | ask; it changes who merges |
 
    `ticket_sync` and the GitHub tracker's labels write to GitHub: say so before running.
 
@@ -62,3 +65,6 @@ inline markers (or `.rej` files) to resolve before committing.
 - For a Python gate, run `uv run pytest` and `scripts/gate`. Findings already in the
   repo do not block; only lines a change adds count.
 - Commit `.copier-answers.yml` with the rest; it is what `copier update` works from.
+- With `ci` set: the CI side is the user's (the README's "Jenkins" section lists it). Once CI reports on a pull
+  request, `init/github-rules.py` sets the `ci-cd` ruleset; it needs Administration: write, which the agents' token
+  may lack, in which case give the user the command. Not before: until CI reports, the ruleset blocks every merge.
