@@ -33,6 +33,13 @@ gate_sha256=2165e8f2217f473974a21f1c5538aa6887d1df56fbabfa11319226dfbfa180a3
 base=${1:-main}
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/octoflow-gate/$gate_commit"
 
+top=$(git rev-parse --show-toplevel)
+cd "$top"
+# The reports and the verdict are gitignored and outlive a run: remove them so a pytest
+# that writes none cannot leave gate.py the last run's, nor a run that ends early the last
+# verdict.
+rm -f test-results.xml coverage.xml quality.md
+
 # pinned FILE: whether FILE is the pinned gate.py.
 pinned() {
 	echo "$gate_sha256  $1" | sha256sum --check --status
@@ -53,18 +60,12 @@ if [[ ! -f $cache/gate.py ]]; then
 	trap - EXIT
 fi
 
-top=$(git rev-parse --show-toplevel)
-cd "$top"
 # Resolved before the tests run, which could move a ref.
 if ! base=$(git rev-parse --verify --quiet "$base^{commit}"); then
 	echo "gate: ${1:-main} is not a commit" >&2
 	exit 2
 fi
 
-# The reports and the verdict are gitignored and outlive a run: remove them so a pytest
-# that writes none cannot leave gate.py the last run's, nor a run that ends early the last
-# verdict.
-rm -f test-results.xml coverage.xml quality.md
 # pytest exits 1 when tests failed, which the gate judges; anything else means the tests
 # did not run (https://docs.pytest.org/en/stable/reference/exit-codes.html).
 status=0
