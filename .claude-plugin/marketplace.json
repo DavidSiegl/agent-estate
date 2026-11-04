@@ -1,0 +1,11 @@
+{
+  "name": "agent-estate",
+  "owner": { "name": "David Siegl" },
+  "plugins": [
+    {
+      "name": "agent-estate",
+      "source": "./plugins/agent-estate",
+      "description": "Apply and maintain the per-repo agent setup (tracker, review gate, quality gate) from this repo's Copier template."
+    }
+  ]
+}

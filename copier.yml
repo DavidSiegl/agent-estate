@@ -1,0 +1,54 @@
+# The per-repo agent setup: docs/agents/ (imported into CLAUDE.md), the tracker, the
+# cross-review push gate and, for Python projects, octoflow-ai's quality gate.
+# README.md says how to apply and update it.
+
+_subdirectory: template
+_min_copier_version: "9.0"
+
+# Post-copy and post-update steps that are not template files: they edit files the repo
+# already owns (.gitignore, CLAUDE.md, pyproject.toml) and set state outside the tree.
+# init/apply.py documents each; it is idempotent, so `copier update` reruns it.
+_tasks:
+  - command:
+      - python3
+      - "{{ _copier_conf.src_path }}/init/apply.py"
+      - "--repo={{ repo }}"
+      - "--tracker={{ tracker }}"
+      - "--ticket-sync={{ ticket_sync }}"
+      - "--review-gate={{ review_gate }}"
+      - "--python-package={{ python_package if python_gate else '' }}"
+
+repo:
+  type: str
+  help: GitHub repo the issues live on, as owner/name
+  validator: "{% if repo.count('/') != 1 or repo.startswith('/') or repo.endswith('/') %}Give owner/name{% endif %}"
+
+tracker:
+  type: str
+  help: Where specs and tickets live
+  choices:
+    Files under .scratch/ (scratch-issue-tracker skill): scratch
+    GitHub Issues, through gh: github
+  default: scratch
+
+ticket_sync:
+  type: bool
+  help: Mirror .scratch/ tickets two-way to GitHub issues on that repo? (publishes every open ticket)
+  default: false
+  when: "{{ tracker == 'scratch' }}"
+
+review_gate:
+  type: bool
+  help: Refuse Claude's pushes of commits without a passing cross-review record?
+  default: true
+
+python_gate:
+  type: bool
+  help: Python project run by uv - add octoflow-ai's quality gate as scripts/gate?
+  default: false
+
+python_package:
+  type: str
+  help: Import name of the package the gate measures coverage of and mutates
+  when: "{{ python_gate }}"
+  validator: "{% if python_gate and not python_package.isidentifier() %}Give an importable name{% endif %}"
