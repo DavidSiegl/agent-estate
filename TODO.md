@@ -24,8 +24,11 @@
   code, the dependencies in its `uv.lock`) and then gate.py, as the same user, in the same `.venv`. Since 2026-11-04
   it checks gate.py's hash on a fresh copy after the tests, in a directory created after them, and runs it with
   `python -I`; that stops a pull request from replacing the cached gate.py. Everything else that user can write is
-  still open, within the run and beyond it: the `.venv`'s ruff, mypy and coverage, `uv`, `~/.gitconfig` (gate.py runs
-  git), `~/.config/uv/uv.toml` and `~/.cache/uv`, none of which `cleanWs()` reaches. A test can so change the verdict
+  still open, within the run and beyond it: the `.venv`'s ruff, mypy, coverage, interpreter and `.pth` files (which
+  `-I` does not stop), `uv`, `~/.gitconfig` (gate.py runs git), `~/.config/uv/uv.toml` and `~/.cache/uv`, none of
+  which `cleanWs()` reaches; `scripts/gate` itself, which bash reads while it runs; a process the tests leave running,
+  which can swap the copy of gate.py after its check; and a `conftest.py`, which auto-merge holds but whose hooks run
+  in any build. A test can so change the verdict
   on its own pull request, which auto-merge then merges, or on later builds on that agent. Review 02 on hyprmuse,
   F3: "the same-process part needs the judge kept out of the judged code's reach, or a recorded decision that it is
   accepted." Closed by running the tests where they cannot write what gate.py and its tools use (a container, or a
