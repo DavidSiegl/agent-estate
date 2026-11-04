@@ -11,8 +11,9 @@ are not repos. So run copier in a repo that already exists. It is idempotent: ea
 brings one thing to the state the answers ask for and leaves it alone when it is already
 there. The steps:
 
-- .gitignore gets `.scratch/` (scratch tracker or review gate) and, with a Python
-  package, the files scripts/gate writes. Lines are only ever added.
+- .gitignore gets `CLAUDE.local.md` (Claude Code's personal, uncommitted instructions),
+  `.scratch/` (scratch tracker or review gate) and, with a Python package, the files
+  scripts/gate writes. Lines are only ever added.
 - CLAUDE.md gets an `@docs/agents/README.md` import line, so its own text stays the
   repo's; a missing CLAUDE.md is created holding only that line.
 - `git config agent.ticketSync` is set to OWNER/NAME when ticket sync is on, unset when
@@ -170,6 +171,7 @@ def main() -> int:
         return 0  # one of copier update's scratch renders; see the module docstring
     root = Path(top.stdout.strip())
     try:
+        ensure_lines(root / ".gitignore", "Claude Code's personal instructions for this repo", ["CLAUDE.local.md"])
         ignores = [".scratch/"] if a.tracker == "scratch" or review_gate else []
         if ignores:
             ensure_lines(root / ".gitignore", "The tracker's specs, tickets and review records", ignores)
