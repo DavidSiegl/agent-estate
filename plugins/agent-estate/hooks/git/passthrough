@@ -1,0 +1,19 @@
+#!/bin/sh
+# Every git hook name but pre-push links here. Claude's commands run git with
+# core.hooksPath set to this directory (see pre-push), which hides the hooks the
+# repo would otherwise run; this runs the repo's hook of the name it was called
+# by, with its arguments and stdin, so that only the review gate is added.
+#
+# The repo's hooks are where git would look without Claude's setting: the
+# core.hooksPath of the repo's or the user's own config (husky's .husky, a
+# committed githooks/), relative to the directory hooks run in, or else
+# <git-common-dir>/hooks. While git init or a first commit is still setting the
+# repo up there is no hook to run yet, and git would only complain.
+dir=$(env -u GIT_CONFIG_COUNT git config --type=path --get core.hooksPath 2>/dev/null) \
+    || dir="$(git rev-parse --git-common-dir 2>/dev/null)/hooks" || exit 0
+# A config that points core.hooksPath here itself would recurse.
+[ "$(cd "$dir" 2>/dev/null && pwd -P)" = "$(cd "$(dirname "$0")" && pwd -P)" ] && exit 0
+# pre-push, which is no link, names itself in PASSTHROUGH_HOOK.
+hook="$dir/${PASSTHROUGH_HOOK:-$(basename "$0")}"
+[ -x "$hook" ] || exit 0
+exec env -u PASSTHROUGH_HOOK "$hook" "$@"

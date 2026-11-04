@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""git pre-push hook: the cross-review gate on Claude's pushes.
+
+Refuses a push, from a repo that opted into cross-session review, that would
+update a ref to a commit no reviewer has recorded `Verdict: pass` for. git
+hands this hook every ref the push updates, so what is checked is exactly what
+is sent, however the command was written. Opt a repo in with
+`mkdir -p <main checkout>/.scratch/reviews` (the cross-review skill, "The gate").
+
+Only Claude's commands reach it: ../git-hooks-path.sh, a SessionStart hook,
+sets core.hooksPath to this directory through GIT_CONFIG_COUNT in the
+environment of the commands Claude runs, so the user's own
+pushes and hooks are untouched. The repo's own pre-push hook, if it has one,
+runs after the gate allows the push, found as passthrough beside this file
+finds every other hook.
+
+`git push --no-verify` skips every pre-push hook, this one included; the
+PreToolUse guard ../no-verify-push.sh refuses Claude's commands that pass it.
+
+The records are the .scratch/reviews/ of the main checkout and of the checkout
+the push runs in: .scratch/ is gitignored, so it lives in whichever checkout
+created it. A deletion, or a ref whose object is no commit (a tag of a tree),
+sends no commit and is not checked.
+
+`REVIEW_GATE=off git push ...` skips the gate; that is the user's to type.
+
+Fails open, deliberately: an error in the gate itself allows the push, with a
+warning. A gate that cannot prove a push is unreviewed must not be the reason
+it cannot happen. Exit 1 refuses, with the reason on stderr, which git prints
+and Claude reads.
+"""
+
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+
+_ZERO = re.compile(r"0+")
+
+
+@dataclass
+class Refusal:
+    """A push that updates refs to commits with no passing record.
+
+    root is the checkout it runs in; unreviewed holds `<short sha> (<local ref>)`
+    for each such commit; reviews is the records directory the instructions
+    name; summary lists every record read, one line each.
+    """
+
+    root: str
+    unreviewed: list[str]
+    reviews: str
+    summary: list[str]
+
+
+def git(*args: str) -> str | None:
+    """git's stdout, stripped, for `git args` in the hook's directory; None when it fails."""
+    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def records(reviews: list[str]) -> tuple[list[str], list[str]]:
+    """The heads of the passing records in the directories reviews, and a
+    one-line summary of every record read."""
+    passed, summary = [], []
+    for d in reviews:
+        for name in sorted(os.listdir(d)):
+            if not name.endswith(".md"):
+                continue
+            with open(os.path.join(d, name), encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            verdict = re.search(r"^Verdict:[ \t]*([a-z-]*)", text, re.M)
+            head = re.search(r"^Head:[ \t]*([0-9a-f]{7,40})", text, re.M)
+            verdict, head = verdict and verdict.group(1), head and head.group(1)
+            summary.append(f"  {os.path.join(d, name)} — Verdict: {verdict or 'unset'}, Head: {head or 'unset'}")
+            if verdict == "pass" and head:
+                passed.append(head)
+    return passed, summary
+
+
+def check(updates: str) -> Refusal | None:
+    """The Refusal for the push whose ref updates git gave on stdin, or None
+    when it may go ahead.
+
+    updates: git's pre-push input, one `<local ref> <local sha> <remote ref>
+    <remote sha>` line per ref the push updates (githooks(5), "pre-push").
+    """
+    root = git("rev-parse", "--show-toplevel")
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not root or not common:
+        return None
+    main = os.path.dirname(common) if os.path.basename(common) == ".git" else root
+    reviews = [d for d in dict.fromkeys((os.path.join(main, ".scratch/reviews"), os.path.join(root, ".scratch/reviews")))
+               if os.path.isdir(d)]
+    if not reviews:
+        return None  # not opted in
+    pushed = []
+    for line in updates.splitlines():
+        words = line.split()
+        if len(words) != 4 or _ZERO.fullmatch(words[1]):
+            continue
+        sha = git("rev-parse", "--verify", "-q", words[1] + "^{commit}")
+        if sha:
+            pushed.append((sha, words[0]))
+    passed, summary = records(reviews)
+    # Prefix comparison both ways, so a record may carry a short sha.
+    unreviewed = [f"{sha[:8]} ({ref})" for sha, ref in pushed
+                  if not any(sha.startswith(h) or h.startswith(sha) for h in passed)]
+    if not unreviewed:
+        return None
+    return Refusal(root, unreviewed, reviews[0], summary)
+
+
+def message(refusal: Refusal) -> str:
+    """What Claude is told when refusal stops a push."""
+    reviews = refusal.reviews
+    lines = [f"Review gate: no review record carries `Verdict: pass` for {', '.join(refusal.unreviewed)}, "
+             f"pushed from {refusal.root}.", ""]
+    lines += ["Records read:", *refusal.summary] if refusal.summary else ["There are no records at all."]
+    lines += [
+        "",
+        "Load the `cross-review` skill. In short:",
+        f"  1. Open or update a record for {refusal.unreviewed[0].split()[0]} (Base, Files, Tickets — facts only).",
+        "  2. Launch the reviewer yourself as a SEPARATE headless session, in the",
+        "     background, able to write its record and nothing else (the skill has",
+        "     the full line, logging and monitoring):",
+        f"       cd {refusal.root} && claude -p \"/cross-review {reviews}/<record>.md\" \\",
+        "         --output-format stream-json --verbose \\",
+        f"         --allowedTools Read Grep Glob Bash Skill Agent Task \"Edit(/{reviews}/**)\"",
+        "  3. Adjudicate its findings here: fixed, deferred to TODO.md, or",
+        "     rejected with a counter-fact at file:line.",
+        "",
+        "Do not write the Head or Verdict lines yourself — those are the reviewer's.",
+        "Do not add REVIEW_GATE=off; that bypass is the user's to type.",
+    ]
+    return "\n".join(lines)
+
+
+def repo_hook(args: list[str], updates: str) -> int:
+    """Run the repo's own pre-push hook, if it has one, as git would have; its
+    exit status. passthrough beside this file finds it, as for every other hook."""
+    passthrough = os.path.join(os.path.dirname(os.path.realpath(__file__)), "passthrough")
+    env = {**os.environ, "PASSTHROUGH_HOOK": "pre-push"}
+    return subprocess.run([passthrough, *args], input=updates, text=True, env=env, check=False).returncode
+
+
+def main(argv: list[str]) -> int:
+    """argv: the remote's name and URL, as git passes them. Returns the hook's exit status."""
+    updates = sys.stdin.read()
+    if os.environ.get("REVIEW_GATE") != "off":
+        try:
+            refusal = check(updates)
+        except Exception as err:  # the gate's own failure must not block the push
+            print(f"review gate: allowing the push, the gate itself failed: {err!r}", file=sys.stderr)
+            refusal = None
+        if refusal:
+            print(message(refusal), file=sys.stderr)
+            return 1
+    return repo_hook(argv[1:], updates)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

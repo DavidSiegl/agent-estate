@@ -1,6 +1,6 @@
 ---
 name: init-repo
-description: Apply the agent setup (issue tracker, cross-review push gate, quality gate) to a git repo from the agent-estate Copier template, or bring a repo that has it up to date. Use when asked to set up, initialise or bootstrap a repo for agents, to give a repo "the same setup as octoflow/hyprmuse", to change a repo's tracker, review gate or quality gate, or to update a repo after the template changed. Not for writing CLAUDE.md content by hand (`/init`) or for the global skills and hooks in ~/.claude.
+description: Apply the agent setup (issue tracker, cross-review push gate, quality gate) to a git repo from the agent-estate Copier template, or bring a repo that has it up to date. Use when asked to set up, initialise or bootstrap a repo for agents, to give a repo "the same setup as octoflow/hyprmuse", to change a repo's tracker, review gate or quality gate, or to update a repo after the template changed. Not for writing CLAUDE.md content by hand (`/init`).
 ---
 
 # Applying the agent setup to a repo
