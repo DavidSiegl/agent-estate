@@ -1,0 +1,68 @@
+# Merges a pull request into main, with a merge commit, once the quality gate has passed
+# on its head commit, so a pull request lands without a human. Held for a human instead:
+# drafts; pull requests labelled no-automerge; pull requests from forks or into another
+# branch; and pull requests that change what judges them, since CI ran the pull
+# request's own copy of those: .github/, scripts/gate{% if ci == 'jenkins' %}, Jenkinsfile{% endif %}.
+#
+# GitHub runs this from main's copy for {% if ci == 'jenkins' %}status{% else %}workflow_run{% endif %} events, so a pull request cannot change
+# these rules for itself. {% if ci == 'jenkins' %}It trusts a success only from Jenkins's GitHub App
+# ({{ jenkins_status_login }}), which the agents' own token cannot post as.{% else %}It acts only on a Gate run of this repository's.{% endif %}
+#
+# It merges with the workflow's own token. A merge made with it starts no workflow for
+# the push to main; a release-on-merge workflow would need a personal token instead.
+name: Auto-merge
+
+on:
+{%- if ci == 'jenkins' %}
+  status
+{%- else %}
+  workflow_run:
+    workflows: [Gate]
+    types: [completed]
+{%- endif %}
+
+permissions: {}
+
+jobs:
+  merge:
+{%- if ci == 'jenkins' %}
+    if: >-
+      github.event.state == 'success' &&
+      github.event.context == 'continuous-integration/jenkins/pr-head' &&
+      github.event.sender.login == '{{ jenkins_status_login }}'
+{%- else %}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+{%- endif %}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: {% raw %}automerge-${{ github.repository }}{% endraw %}
+      cancel-in-progress: false
+    steps:
+      - env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
+          SHA: {% raw %}${{ {% endraw %}{% if ci == 'jenkins' %}github.event.sha{% else %}github.event.workflow_run.head_sha{% endif %}{% raw %} }}{% endraw %}
+        run: |
+          # Every open pull request whose head is the commit that passed.
+          for pr in $(gh api "repos/$GH_REPO/commits/$SHA/pulls" --jq '.[] | select(.state == "open") | .number'); do
+            IFS=$'\t' read -r head branch base draft fork held <<<"$(gh pr view "$pr" \
+              --json headRefOid,headRefName,baseRefName,isDraft,isCrossRepository,labels \
+              --jq '[.headRefOid, .headRefName, .baseRefName, .isDraft, .isCrossRepository,
+                     any(.labels[]; .name == "no-automerge")] | @tsv')"
+            if [ "$head" != "$SHA" ]; then
+              echo "#$pr: its head moved on from $SHA; that commit's own check decides"
+            elif [ "$base" != main ] || [ "$draft" = true ] || [ "$fork" = true ] || [ "$held" = true ]; then
+              echo "#$pr: held (base $base, draft $draft, fork $fork, no-automerge $held)"
+            elif gh pr diff "$pr" --name-only | grep -qE '^(\.github/|scripts/gate$){% if ci == 'jenkins' %}|^Jenkinsfile${% endif %}'; then
+              echo "#$pr: changes what judges it; held for a human"
+            else
+              gh pr merge "$pr" --merge --match-head-commit "$SHA"
+              gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch"
+              echo "#$pr: merged"
+            fi
+          done

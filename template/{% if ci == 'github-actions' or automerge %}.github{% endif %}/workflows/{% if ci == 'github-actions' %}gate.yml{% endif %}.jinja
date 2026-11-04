@@ -1,0 +1,42 @@
+# Runs the quality gate (scripts/gate) on every pull request into main and fails on
+# GATE: ERROR or when the gate could not judge. Its job, gate, is the check the main
+# ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
+# that a pull request released from a hold (docs/agents/README.md) gets a fresh run to
+# merge on.
+name: Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      # The gate lints the workflows it finds with actionlint, which the runner lacks.
+      - name: Install actionlint
+        run: |
+          version=1.7.12
+          sha256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          tarball="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v$version/actionlint_${version}_linux_amd64.tar.gz" -o "$tarball"
+          echo "$sha256  $tarball" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tarball" -C "$RUNNER_TEMP/bin" actionlint
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Gate
+        env:
+          BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+        run: scripts/gate "$(git merge-base HEAD "$BASE")"
+      - name: Report
+        if: always()
+        run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi

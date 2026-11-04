@@ -2,7 +2,7 @@
 """Apply the parts of the agent setup that are not template files, to the repo in the cwd.
 
     apply.py --repo OWNER/NAME --tracker scratch|github --ticket-sync true|false
-             --review-gate true|false --python-package NAME|''
+             --review-gate true|false --python-package NAME|'' --automerge true|false
 
 copier.yml runs this after `copier copy` and `copier update`, with the answers, in the
 destination repo. Outside a git work tree it does nothing and exits 0: `copier update`
@@ -24,7 +24,11 @@ there. The steps:
   already has a [tool.ruff.lint] table, which is reported and left alone, and `uv add
   --dev` adds the tools the gate runs.
 - With the GitHub tracker: the five triage labels are created on OWNER/NAME if missing.
-  (With ticket sync, ticket-sync creates them itself.)
+  (With ticket sync, ticket-sync creates them itself.) With auto-merge, so is the
+  no-automerge label that holds a pull request.
+
+The main branch's ruleset is not set here: it needs admin rights, and must wait until CI
+reports, or nothing can merge. init/github-rules.py does it.
 
 Prints one line per change. Exits 1, naming the step, when a command or file operation
 fails; steps after it do not run, and rerunning finishes them.
@@ -40,6 +44,9 @@ HERE = Path(__file__).resolve().parent
 GATE_DEV_TOOLS = ["mutmut", "mypy", "pymarkdownlnt", "pytest", "pytest-cov", "pytest-randomly", "ruff"]
 GATE_OUTPUTS = [".coverage", "coverage.xml", "test-results.xml", "quality.md"]
 CLAUDE_IMPORT = "@docs/agents/README.md"
+
+# Label, colour and description of the label that keeps auto-merge off a pull request.
+HOLD_LABEL = ("no-automerge", "b60205", "Auto-merge leaves this pull request for a human")
 
 # Label, colour and description of each triage role (scratch-issue-tracker's vocabulary).
 TRIAGE_LABELS = [
@@ -135,11 +142,11 @@ def ensure_python_gate(root: Path, package: str) -> None:
     run("uv", "add", "--dev", "--quiet", *GATE_DEV_TOOLS)
 
 
-def ensure_labels(repo: str) -> None:
-    """Create the triage labels on repo that it lacks."""
+def ensure_labels(repo: str, labels: list[tuple[str, str, str]]) -> None:
+    """Create on repo each (name, colour, description) in labels that it lacks."""
     names = set(run("gh", "label", "list", "--repo", repo, "--limit", "500", "--json", "name",
                     "--jq", ".[].name").stdout.split("\n"))
-    for name, colour, description in TRIAGE_LABELS:
+    for name, colour, description in labels:
         if name not in names:
             run("gh", "label", "create", name, "--repo", repo, "--color", colour, "--description", description)
             print(f"{repo}: created label {name}")
@@ -153,6 +160,7 @@ def main() -> int:
     p.add_argument("--ticket-sync", choices=["true", "false", "True", "False"], required=True)
     p.add_argument("--review-gate", choices=["true", "false", "True", "False"], required=True)
     p.add_argument("--python-package", default="")
+    p.add_argument("--automerge", choices=["true", "false", "True", "False"], default="false")
     a = p.parse_args()
     ticket_sync = a.tracker == "scratch" and a.ticket_sync.lower() == "true"
     review_gate = a.review_gate.lower() == "true"
@@ -172,8 +180,11 @@ def main() -> int:
         ensure_review_gate(root, review_gate)
         if a.python_package:
             ensure_python_gate(root, a.python_package)
-        if a.tracker == "github":
-            ensure_labels(a.repo)
+        labels = TRIAGE_LABELS if a.tracker == "github" else []
+        if a.automerge.lower() == "true":
+            labels = [*labels, HOLD_LABEL]
+        if labels:
+            ensure_labels(a.repo, labels)
     except (StepFailed, OSError) as e:
         print(f"apply.py: {e}", file=sys.stderr)
         return 1

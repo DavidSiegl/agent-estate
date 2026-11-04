@@ -1,5 +1,6 @@
 # The per-repo agent setup: docs/agents/ (imported into CLAUDE.md), the tracker, the
-# cross-review push gate and, for Python projects, octoflow-ai's quality gate.
+# cross-review push gate and, for Python projects, octoflow-ai's quality gate, run in CI
+# (Jenkins or GitHub Actions) with optional auto-merge.
 # README.md says how to apply and update it.
 
 _subdirectory: template
@@ -17,6 +18,7 @@ _tasks:
       - "--ticket-sync={{ ticket_sync }}"
       - "--review-gate={{ review_gate }}"
       - "--python-package={{ python_package if python_gate else '' }}"
+      - "--automerge={{ automerge }}"
 
 repo:
   type: str
@@ -52,3 +54,32 @@ python_package:
   help: Import name of the package the gate measures coverage of and mutates
   when: "{{ python_gate }}"
   validator: "{% if python_gate and not python_package.isidentifier() %}Give an importable name{% endif %}"
+
+ci:
+  type: str
+  help: Where the quality gate runs on pull requests
+  choices:
+    Nowhere - locally only: none
+    Jenkins (multibranch job, GitHub App status): jenkins
+    GitHub Actions: github-actions
+  default: none
+  when: "{{ python_gate }}"
+
+jenkins_agent_label:
+  type: str
+  help: Label of the Jenkins agents that may run code agents wrote
+  default: untrusted
+  when: "{{ ci == 'jenkins' }}"
+
+jenkins_status_login:
+  type: str
+  help: GitHub login Jenkins's GitHub App posts statuses as ("<app-slug>[bot]")
+  default: davidsiegl-jenkins[bot]
+  when: "{{ ci == 'jenkins' }}"
+  validator: "{% if ci == 'jenkins' and not jenkins_status_login.endswith('[bot]') %}An App posts as <slug>[bot]{% endif %}"
+
+automerge:
+  type: bool
+  help: Merge a pull request into main automatically once CI passes on its head?
+  default: false
+  when: "{{ ci != 'none' }}"

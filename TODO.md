@@ -14,8 +14,6 @@
     which a plugin cannot set. Something has to keep pointing it at the plugin's directory, for example a
     SessionStart hook that checks it.
   - The live `~/.claude` setup changes in one step: old copies removed, plugin installed, settings rewritten.
-- **CI for the quality gate.** Optional GitHub Actions workflow in the template (`python_gate_ci`), running
-  `scripts/gate origin/main` on pull requests.
 
 ## Open issues
 
