@@ -1,5 +1,5 @@
 {
-  "description": "The review gate's git hooks path and its guard, ticket-sync, and context handover.",
+  "description": "The review gate's git hooks path and its guard, ticket-sync, the README check before a pull request, and context handover.",
   "hooks": {
     "SessionStart": [
       {
@@ -31,7 +31,8 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/no-verify-push.sh\"" }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/no-verify-push.sh\"" },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/readme-sync.py\"", "timeout": 10 }
         ]
       },
       {
