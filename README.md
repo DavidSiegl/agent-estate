@@ -41,8 +41,14 @@ rewritten.
 
 With `ci` set, pull requests run `scripts/gate` in CI; with `automerge`, `.github/workflows/automerge.yml` merges one
 into `main` once CI passed on its head commit (the generated `docs/agents/README.md` says what holds one back). It
-merges with the workflow's own token, so it needs no secret, and it checks who reported the result itself, so it is
-safe before any ruleset exists.
+checks who reported the result itself, so it is safe before any ruleset exists. It merges with a repository secret,
+`AUTOMERGE_TOKEN`: a fine-grained personal access token of the owner, limited to the repo, with Contents, Pull
+requests and Workflows read and write (the header of the generated `automerge.yml` says why not the workflow's own
+token). Until it is set, nothing merges:
+
+```bash
+gh secret set AUTOMERGE_TOKEN -R OWNER/NAME
+```
 
 Once CI reports on pull requests, protect `main` with the `ci-cd` ruleset (needs a gh token with Administration:
 write on the repo; the docstring says what it sets):
