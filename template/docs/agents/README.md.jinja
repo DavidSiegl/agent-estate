@@ -51,11 +51,16 @@ what it checks and what CI expects of it. Run it before handing a branch to revi
 Jenkins builds every pull request and `main` with the `Jenkinsfile`, running `scripts/gate` over a pull request since
 its merge base and over `main` since its last successful build, and reports `continuous-integration/jenkins/pr-head`
 on each pull request through its GitHub App.
+{%- if release %}
+A build of `main` with no earlier success to start from judges everything since the release before its commit, or the
+whole tree before the first release.
+{%- endif %}
 {%- else -%}
 The Gate workflow (`.github/workflows/gate.yml`) runs `scripts/gate` from the merge base on every pull request into
 `main`, as the check `gate`.
 {%- if release %}
-It also runs on each push to `main`, one at a time, judging everything since the last run there that passed.
+It also runs on each push to `main`, one at a time, judging everything since the last run there that passed; with
+none, since the release before that push, or the whole tree before the first release.
 {%- endif %}
 {%- endif %}
 {%- if automerge %}
