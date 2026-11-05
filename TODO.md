@@ -19,6 +19,11 @@
   accepted." Closed by running the tests where they cannot write what gate.py and its tools use (a container, or a
   different user on the Jenkins agent), or by the user deciding agents' pull requests are trusted that far.
 
+- **Two auto-merge runs at the same moment can merge two raises to the same version.** With `release`,
+  `automerge.yml` re-checks the raise against `main` right before merging (hyprmuse's review 26, F1), but two runs that
+  both check before either merges both pass, and the second merge ships unreleased. Closed by strict status checks on
+  the `ci-cd` ruleset (`init/github-rules.py`), with auto-merge updating a branch that is behind.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.
