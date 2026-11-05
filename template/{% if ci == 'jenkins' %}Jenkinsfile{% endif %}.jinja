@@ -5,6 +5,9 @@
 // does the ci-cd ruleset on main once agent-estate's init/github-rules.py has set it.
 // docs/agents/README.md says how a pull request then merges; the agent-estate README,
 // "Jenkins", says what the job and the agent need.
+{%- if release %} Stages Version, Package and Release then
+// release each merge into main that raises the version: scripts/release says what and when.
+{%- endif %}
 pipeline {
     // Builds run code agents wrote: only on agents that hold nothing an agent should not
     // have. Jenkins enforces that per node (Job Restrictions plugin), not this label.
@@ -13,6 +16,11 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timeout(time: 60, unit: 'MINUTES')
+{%- if release %}
+        // One build per branch at a time, so two builds of main cannot both find a
+        // version unreleased and race to release it (stage Release).
+        disableConcurrentBuilds()
+{%- endif %}
     }
 
     environment {
@@ -44,11 +52,10 @@ pipeline {
                                                   script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
                         base = kept ? previous : 'HEAD^1'
                     }
-                    // The base reaches the shell as an environment variable, never as Groovy-built shell code.
-                    def status
-                    withEnv(["GATE_BASE=${base}"]) {
-                        status = sh(returnStatus: true, script: 'scripts/gate "$GATE_BASE"')
-                    }
+                    // The base reaches the shell as an environment variable, never as Groovy-built
+                    // shell code.{% if release %} Package reads it too.{% endif %}
+                    env.GATE_BASE = base
+                    def status = sh(returnStatus: true, script: 'scripts/gate "$GATE_BASE"')
                     if (status == 1) {
                         error('GATE: ERROR - see quality.md')
                     } else if (status != 0) {
@@ -57,6 +64,50 @@ pipeline {
                 }
             }
         }
+{%- if release %}
+
+        // A pull request into main must raise the release version over main's, unless it
+        // changes only exempt paths (scripts/release's header). After Gate, so a build that
+        // fails it has reported its tests and gate first.
+        stage('Version') {
+            when { changeRequest target: 'main' }
+            steps {
+                sh 'scripts/release raised "$CHANGE_TARGET"'
+            }
+        }
+
+        // The repo's own scripts/package, which writes what Release attaches to
+        // dist/release/: run only when the change since Gate's base touches a released path,
+        // so a change to docs alone builds nothing. A pull request that breaks the build so
+        // fails before it is merged.
+        stage('Package') {
+            when { expression { fileExists('scripts/package') } }
+            steps {
+                script {
+                    def touched = sh(returnStatus: true, script: 'scripts/release changed "$GATE_BASE"')
+                    if (touched == 0) {
+                        sh 'scripts/package'
+                    } else if (touched == 1) {
+                        echo 'Only exempt paths changed since the gate base: nothing to package.'
+                    } else {
+                        error("scripts/release changed failed (exit status ${touched})")
+                    }
+                }
+            }
+        }
+
+        // Releases a merge into main whose version has no release yet; any other merge finds
+        // its release there and does nothing (scripts/release publish). gh creates the tag
+        // on GitHub, so Jenkins needs no git push credentials.
+        stage('Release') {
+            when { branch 'main' }
+            steps {
+                withCredentials([string(credentialsId: '{{ jenkins_release_credential }}', variable: 'GH_TOKEN')]) {
+                    sh 'scripts/release publish'
+                }
+            }
+        }
+{%- endif %}
     }
 
     post {

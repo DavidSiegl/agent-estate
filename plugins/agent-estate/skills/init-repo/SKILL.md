@@ -29,6 +29,7 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
    | `ci` | where the gate runs on pull requests: `none`, `jenkins`, `github-actions` | ask; Jenkins needs a job the user sets up |
    | `jenkins_agent_label` / `jenkins_status_login` | the Jenkins agents allowed to build, and the App login whose status counts | `untrusted`, `davidsiegl-jenkins[bot]` |
    | `automerge` | merge pull requests into main once CI passes, with no human | ask; it changes who merges |
+   | `release` / `jenkins_release_credential` | Jenkins releases every merge into main that raises the version (`scripts/release`); the credential holds a token that may create releases | ask; `GitHub-Agents` |
 
    `ticket_sync` and the GitHub tracker's labels write to GitHub: say so before running.
 

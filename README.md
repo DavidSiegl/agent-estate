@@ -5,7 +5,7 @@ them.
 
 - **`copier.yml`, `template/`, `init/`**: a [Copier](https://copier.readthedocs.io/) template for the per-repo part:
   the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for uv
-  Python projects, octoflow-ai's quality gate as `scripts/gate`. `init/apply.py` does what isn't a template file:
+  Python projects, octoflow-ai's quality gate as `scripts/gate` and, built by Jenkins, releases (`scripts/release`). `init/apply.py` does what isn't a template file:
   `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger,
@@ -73,6 +73,22 @@ reasons):
   restricted per node with the Job Restrictions plugin, with `uv`, `git`, `curl`, `shellcheck` and `actionlint` on
   it.
 
+### Releases
+
+With `release` (Jenkins only), a merge into `main` whose `pyproject.toml` version has no GitHub release yet is
+released as `v<version>` by `scripts/release publish`, and the Version stage fails a pull request into `main` that
+changes a released path without raising the version; auto-merge checks that again right before merging, so a pull
+request overtaken by another that raised to the same version is held. `scripts/release`'s header is the rule: which
+paths are exempt, and how versions compare. The job then needs:
+
+- a **string credential** named by `jenkins_release_credential` (default `GitHub-Agents`), holding a GitHub token
+  that may create releases on the repo (Contents: read and write);
+- optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and writes it to
+  `dist/release/`. The Package stage runs it only when the change touches a released path; without it the release
+  has only GitHub's source archives;
+- optionally a repo-owned **`.release-exempt`**: more paths whose changes reach no user, one git glob pathspec per
+  line, beside the built-in docs, tests and CI.
+
 ## Installing the plugin
 
 In `~/.claude/settings.json` (dotfiles keeps it there), so that every machine has it:
@@ -105,5 +121,5 @@ Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
 A change to a question goes in `copier.yml` and in the `init-repo` skill's table of answers. Before committing, try
 a change on a scratch repo: `copier copy` with every combination it touches, then `copier update` on a repo created
-from the previous commit. Tag a release (`git tag vX.Y.Z`) so `copier update` moves between versions rather than
+from the previous commit, and run `python3 tests/release_test.py`. Tag a release (`git tag vX.Y.Z`) so `copier update` moves between versions rather than
 commits.

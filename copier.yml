@@ -83,3 +83,16 @@ automerge:
   help: Merge a pull request into main automatically once CI passes on its head?
   default: false
   when: "{{ ci != 'none' }}"
+
+release:
+  type: bool
+  help: Release every merge into main that raises pyproject.toml's version, as a GitHub release (scripts/release)?
+  default: false
+  when: "{{ python_gate and ci == 'jenkins' }}"
+  validator: "{% if release and not (python_gate and ci == 'jenkins') %}Releases need python_gate and ci=jenkins{% endif %}"
+
+jenkins_release_credential:
+  type: str
+  help: Jenkins string credential holding a GitHub token that may create releases on the repo
+  default: GitHub-Agents
+  when: "{{ release }}"
