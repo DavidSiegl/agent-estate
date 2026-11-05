@@ -44,18 +44,39 @@ pipeline {
                             git merge-base HEAD "origin/$CHANGE_TARGET"
                         ''').trim()
                     } else {
+{%- if release %}
+                        // A branch build: since the last successful build. With none, or a
+                        // force-push having removed it (a new job, or the gate newly added), it is
+                        // everything a release would ship: since the nearest v* release tag, else
+                        // since a commit of the empty tree, made here and never pushed, so a repo's
+                        // first release is judged whole, tests included.
+                        def previous = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+                        def kept = previous && sh(returnStatus: true,
+                                                  script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
+                        base = kept ? previous : sh(returnStdout: true, script: '''
+                            git fetch --quiet --tags origin
+                            if released=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then
+                                git rev-parse "$released^{commit}"
+                            else
+                                empty=$(git hash-object -w -t tree /dev/null)
+                                git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \\
+                                    commit-tree "$empty" -m empty </dev/null
+                            fi
+                        ''').trim()
+{%- else %}
                         // A branch build: since the last successful build, or the last commit when
                         // there is none or a force-push removed it, or (a root commit) since a
-                        // commit of the empty tree, made here and never pushed, so the first push
-                        // of a repo is judged whole, tests included, before it can be released.
+                        // commit of the empty tree, made here and never pushed.
                         def previous = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
                         def kept = previous && sh(returnStatus: true,
                                                   script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
                         def parent = sh(returnStatus: true, script: 'git cat-file -e "HEAD^1^{commit}"') == 0
                         base = kept ? previous : parent ? 'HEAD^1' : sh(returnStdout: true, script: '''
                             empty=$(git hash-object -w -t tree /dev/null)
-                            git -c user.name=gate -c user.email=gate@localhost commit-tree "$empty" -m empty </dev/null
+                            git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \\
+                                commit-tree "$empty" -m empty </dev/null
                         ''').trim()
+{%- endif %}
                     }
                     // The base reaches the shell as an environment variable, never as Groovy-built
                     // shell code.

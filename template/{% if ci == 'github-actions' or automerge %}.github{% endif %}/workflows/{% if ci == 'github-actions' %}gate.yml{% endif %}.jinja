@@ -67,9 +67,10 @@ jobs:
 {%- endif %}
       # The change this run judges, from GATE_BASE to HEAD: a pull request's since it left
       # main{% if release %}; a push's since the head of the last run on main that passed, as
-      # Jenkins's GIT_PREVIOUS_SUCCESSFUL_COMMIT, else since the last commit, else (a root
-      # commit) since a commit of the empty tree, made here and never pushed, so the first
-      # push of a repo is judged whole, tests included, before it can be released{% endif %}.
+      # Jenkins's GIT_PREVIOUS_SUCCESSFUL_COMMIT. With no such run (a new repo, or the gate
+      # newly added) it is everything a release would ship: since the nearest v* release
+      # tag, else since a commit of the empty tree, made here and never pushed, so a repo's
+      # first release is judged whole, tests included{% endif %}.
       - name: Change
         env:
           PR_BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
@@ -85,11 +86,12 @@ jobs:
               --limit 1 --json headSha --jq '.[0].headSha // ""')
             if [ -n "$passed" ] && git cat-file -e "$passed^{commit}" 2>/dev/null; then
               base=$passed
-            elif git cat-file -e 'HEAD^1^{commit}' 2>/dev/null; then
-              base=$(git rev-parse HEAD^1)
+            elif released=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then
+              base=$(git rev-parse "$released^{commit}")
             else
               empty=$(git hash-object -w -t tree /dev/null)
-              base=$(git -c user.name=gate -c user.email=gate@localhost commit-tree "$empty" -m empty </dev/null)
+              base=$(git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \
+                commit-tree "$empty" -m empty </dev/null)
             fi
           fi
 {%- else %}
