@@ -2,7 +2,8 @@
 """Apply the parts of the agent setup that are not template files, to the repo in the cwd.
 
     apply.py --repo OWNER/NAME --tracker scratch|github --ticket-sync true|false
-             --review-gate true|false --python-package NAME|'' --automerge true|false
+             --review-gate true|false --gate python|own|none --python-package NAME|''
+             --automerge true|false
 
 copier.yml runs this after `copier copy` and `copier update`, with the answers, in the
 destination repo. Outside a git work tree it does nothing and exits 0: `copier update`
@@ -12,8 +13,9 @@ brings one thing to the state the answers ask for and leaves it alone when it is
 there. The steps:
 
 - .gitignore gets `CLAUDE.local.md` (Claude Code's personal, uncommitted instructions),
-  `.scratch/` (scratch tracker or review gate) and, with a Python package, the files
-  scripts/gate writes. Lines are only ever added.
+  `.scratch/` (scratch tracker or review gate) and what scripts/gate writes: quality.md
+  with any gate, and octoflow-ai's test and coverage files with the python one. Lines are
+  only ever added.
 - CLAUDE.md gets an `@docs/agents/README.md` import line, so its own text stays the
   repo's; a missing CLAUDE.md is created holding only that line.
 - `git config agent.ticketSync` is set to OWNER/NAME when ticket sync is on, unset when
@@ -43,7 +45,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 GATE_DEV_TOOLS = ["mutmut", "mypy", "pymarkdownlnt", "pytest", "pytest-cov", "pytest-randomly", "ruff"]
-GATE_OUTPUTS = [".coverage", "coverage.xml", "test-results.xml", "quality.md"]
+# What each kind of scripts/gate writes at the repo root (the --gate answer); `own` is the
+# report the starter gate's header invites.
+GATE_OUTPUTS = {
+    "python": [".coverage", "coverage.xml", "test-results.xml", "quality.md"],
+    "own": ["quality.md"],
+    "none": [],
+}
 CLAUDE_IMPORT = "@docs/agents/README.md"
 
 # Label, colour and description of the label that keeps auto-merge off a pull request.
@@ -160,6 +168,7 @@ def main() -> int:
     p.add_argument("--tracker", choices=["scratch", "github"], required=True)
     p.add_argument("--ticket-sync", choices=["true", "false", "True", "False"], required=True)
     p.add_argument("--review-gate", choices=["true", "false", "True", "False"], required=True)
+    p.add_argument("--gate", choices=list(GATE_OUTPUTS), default="none")
     p.add_argument("--python-package", default="")
     p.add_argument("--automerge", choices=["true", "false", "True", "False"], default="false")
     a = p.parse_args()
@@ -175,8 +184,8 @@ def main() -> int:
         ignores = [".scratch/"] if a.tracker == "scratch" or review_gate else []
         if ignores:
             ensure_lines(root / ".gitignore", "The tracker's specs, tickets and review records", ignores)
-        if a.python_package:
-            ensure_lines(root / ".gitignore", "What scripts/gate writes", GATE_OUTPUTS)
+        if GATE_OUTPUTS[a.gate]:
+            ensure_lines(root / ".gitignore", "What scripts/gate writes", GATE_OUTPUTS[a.gate])
         ensure_claude_import(root)
         ensure_ticket_sync(a.repo if ticket_sync else None)
         ensure_review_gate(root, review_gate)

@@ -1,10 +1,14 @@
 // Builds main and every pull request in a Multibranch Pipeline job and runs the quality
-// gate (scripts/gate) on each, failing the build on GATE: ERROR or when the gate could not
-// judge. For a pull request, Jenkins's GitHub App reports the result as the commit status
-// continuous-integration/jenkins/pr-head, which auto-merge trusts only from that App, as
-// does the ci-cd ruleset on main once agent-estate's init/github-rules.py has set it.
+// gate (scripts/gate) on each, failing the build on GATE: ERROR or when the gate could
+// not judge. For a pull request, Jenkins's GitHub App reports the result as the commit
+// status continuous-integration/jenkins/pr-head, which auto-merge trusts only from that
+// App, as does the ci-cd ruleset on main once agent-estate's init/github-rules.py has set
+// it.
 // docs/agents/README.md says how a pull request then merges; the agent-estate README,
 // "Jenkins", says what the job and the agent need.
+{%- if release %} Stages Version, Package and Release then
+// release each merge into main that raises the version: scripts/release says what and when.
+{%- endif %}
 pipeline {
     // Builds run code agents wrote: only on agents that hold nothing an agent should not
     // have. Jenkins enforces that per node (Job Restrictions plugin), not this label.
@@ -13,20 +17,23 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timeout(time: 60, unit: 'MINUTES')
+{%- if release %}
+        // One build per branch at a time, so two builds of main cannot both find a
+        // version unreleased and race to release it (stage Release).
+        disableConcurrentBuilds()
+{%- endif %}
     }
+{%- if gate == 'python' %}
 
     environment {
         UV_NO_PROGRESS = '1'
     }
+{%- endif %}
 
     stages {
-        stage('Install') {
-            steps {
-                sh 'uv sync --frozen'
-            }
-        }
-
-        stage('Gate') {
+        // The change this build judges, from GATE_BASE to HEAD; scripts/gate decides how much
+        // of it to run.
+        stage('Change') {
             steps {
                 script {
                     def base
@@ -37,18 +44,59 @@ pipeline {
                             git merge-base HEAD "origin/$CHANGE_TARGET"
                         ''').trim()
                     } else {
-                        // A branch build: since the last successful build, or the last commit when
-                        // there is none or a force-push removed it.
+{%- if release %}
+                        // A branch build: since the last successful build. With none, or a
+                        // force-push having removed it (a new job, or the gate newly added), it is
+                        // everything a release would ship: since the nearest v* release tag, else
+                        // since a commit of the empty tree, made here and never pushed, so a repo's
+                        // first release is judged whole, tests included.
                         def previous = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
                         def kept = previous && sh(returnStatus: true,
                                                   script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
-                        base = kept ? previous : 'HEAD^1'
+                        base = kept ? previous : sh(returnStdout: true, script: '''
+                            git fetch --quiet --tags origin
+                            if released=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then
+                                git rev-parse "$released^{commit}"
+                            else
+                                empty=$(git hash-object -w -t tree /dev/null)
+                                git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \\
+                                    commit-tree "$empty" -m empty </dev/null
+                            fi
+                        ''').trim()
+{%- else %}
+                        // A branch build: since the last successful build, or the last commit when
+                        // there is none or a force-push removed it, or (a root commit) since a
+                        // commit of the empty tree, made here and never pushed.
+                        def previous = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+                        def kept = previous && sh(returnStatus: true,
+                                                  script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
+                        def parent = sh(returnStatus: true, script: 'git cat-file -e "HEAD^1^{commit}"') == 0
+                        base = kept ? previous : parent ? 'HEAD^1' : sh(returnStdout: true, script: '''
+                            empty=$(git hash-object -w -t tree /dev/null)
+                            git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \\
+                                commit-tree "$empty" -m empty </dev/null
+                        ''').trim()
+{%- endif %}
                     }
-                    // The base reaches the shell as an environment variable, never as Groovy-built shell code.
-                    def status
-                    withEnv(["GATE_BASE=${base}"]) {
-                        status = sh(returnStatus: true, script: 'scripts/gate "$GATE_BASE"')
-                    }
+                    // The base reaches the shell as an environment variable, never as Groovy-built
+                    // shell code.
+                    env.GATE_BASE = base
+                }
+            }
+        }
+{%- if gate == 'python' %}
+
+        stage('Install') {
+            steps {
+                sh 'uv sync --frozen'
+            }
+        }
+{%- endif %}
+
+        stage('Gate') {
+            steps {
+                script {
+                    def status = sh(returnStatus: true, script: 'scripts/gate "$GATE_BASE"')
                     if (status == 1) {
                         error('GATE: ERROR - see quality.md')
                     } else if (status != 0) {
@@ -57,6 +105,70 @@ pipeline {
                 }
             }
         }
+{%- if release %}
+
+        // A pull request into main must raise the release version over main's, unless it
+        // changes only exempt paths (scripts/release's header). After Gate, so a build that
+        // fails it has reported its tests and gate first.
+        stage('Version') {
+            when { changeRequest target: 'main' }
+            steps {
+                sh 'scripts/release raised "$CHANGE_TARGET"'
+            }
+        }
+
+        // The repo's own scripts/package, run on a pull request whose change touches a
+        // released path, so one that breaks the build fails before it is merged and a change
+        // to docs alone builds nothing. On main, Release runs it itself when it releases.
+        stage('Package') {
+            when {
+                changeRequest()
+                expression { fileExists('scripts/package') }
+            }
+            steps {
+                script {
+                    def touched = sh(returnStatus: true, script: 'scripts/release changed "$GATE_BASE"')
+                    if (touched == 0) {
+                        sh 'scripts/package'
+                    } else if (touched == 1) {
+                        echo 'Only exempt paths changed: nothing to package.'
+                    } else {
+                        error("scripts/release changed failed (exit status ${touched})")
+                    }
+                }
+            }
+        }
+
+        // Releases a merge into main whose version has no release yet, packaging it first;
+        // any other merge finds its release there and builds nothing (scripts/release due
+        // and publish). scripts/package runs outside withCredentials, so no process above
+        // it holds the token; it can still reach publish's (scripts/release's header). gh
+        // creates the tag on GitHub, so Jenkins needs no git push credentials. The
+        // credential is bound on the agent that builds agents' pull requests: it must be a
+        // token the agents already hold (the agent-estate README, "Releases").
+        stage('Release') {
+            when { branch 'main' }
+            steps {
+                script {
+                    def due
+                    withCredentials([string(credentialsId: '{{ jenkins_release_credential }}', variable: 'GH_TOKEN')]) {
+                        due = sh(returnStatus: true, script: 'scripts/release due')
+                    }
+                    if (due == 1) {
+                        return
+                    } else if (due != 0) {
+                        error("scripts/release due failed (exit status ${due})")
+                    }
+                    if (fileExists('scripts/package')) {
+                        sh 'scripts/package'
+                    }
+                    withCredentials([string(credentialsId: '{{ jenkins_release_credential }}', variable: 'GH_TOKEN')]) {
+                        sh 'scripts/release publish'
+                    }
+                }
+            }
+        }
+{%- endif %}
     }
 
     post {

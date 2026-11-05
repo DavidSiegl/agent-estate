@@ -1,10 +1,15 @@
 # The per-repo agent setup: docs/agents/ (imported into CLAUDE.md), the tracker, the
-# cross-review push gate and, for Python projects, octoflow-ai's quality gate, run in CI
-# (Jenkins or GitHub Actions) with optional auto-merge.
-# README.md says how to apply and update it.
+# cross-review push gate and a quality gate (octoflow-ai's for Python, or the repo's own
+# for any language), run in CI (Jenkins or GitHub Actions) with optional auto-merge and
+# releases. README.md says how to apply and update it.
 
 _subdirectory: template
 _min_copier_version: "9.0"
+
+# A repo-owned gate is the repo's from its first render: scripts/gate is a starter that
+# `copier update` never overwrites. octoflow-ai's gate stays the template's.
+_skip_if_exists:
+  - "{% if gate == 'own' %}scripts/gate{% endif %}"
 
 # Post-copy and post-update steps that are not template files: they edit files the repo
 # already owns (.gitignore, CLAUDE.md, pyproject.toml) and set state outside the tree.
@@ -17,7 +22,8 @@ _tasks:
       - "--tracker={{ tracker }}"
       - "--ticket-sync={{ ticket_sync }}"
       - "--review-gate={{ review_gate }}"
-      - "--python-package={{ python_package if python_gate else '' }}"
+      - "--gate={{ gate }}"
+      - "--python-package={{ python_package if gate == 'python' else '' }}"
       - "--automerge={{ automerge }}"
 
 repo:
@@ -44,16 +50,22 @@ review_gate:
   help: Refuse Claude's pushes of commits without a passing cross-review record?
   default: true
 
-python_gate:
-  type: bool
-  help: Python project run by uv - add octoflow-ai's quality gate as scripts/gate?
-  default: false
+# Replaces the yes/no python_gate: its default takes a repo's old answer, which `copier
+# update` still passes to the new question's default, so such a repo needs no -d.
+gate:
+  type: str
+  help: The quality gate scripts/gate runs on a change
+  choices:
+    octoflow-ai's, for a Python project run by uv: python
+    The repo's own, for any language (a starter scripts/gate to fill in): own
+    None: none
+  default: "{{ 'python' if python_gate | default(false) else 'none' }}"
 
 python_package:
   type: str
   help: Import name of the package the gate measures coverage of and mutates
-  when: "{{ python_gate }}"
-  validator: "{% if python_gate and not python_package.isidentifier() %}Give an importable name{% endif %}"
+  when: "{{ gate == 'python' }}"
+  validator: "{% if gate == 'python' and not python_package.isidentifier() %}Give an importable name{% endif %}"
 
 ci:
   type: str
@@ -63,7 +75,7 @@ ci:
     Jenkins (multibranch job, GitHub App status): jenkins
     GitHub Actions: github-actions
   default: none
-  when: "{{ python_gate }}"
+  when: "{{ gate != 'none' }}"
 
 jenkins_agent_label:
   type: str
@@ -83,3 +95,16 @@ automerge:
   help: Merge a pull request into main automatically once CI passes on its head?
   default: false
   when: "{{ ci != 'none' }}"
+
+release:
+  type: bool
+  help: Release every merge into main that raises the version, as a GitHub release (scripts/release)?
+  default: false
+  when: "{{ ci != 'none' }}"
+  validator: "{% if release and ci == 'none' %}Releases need ci{% endif %}"
+
+jenkins_release_credential:
+  type: str
+  help: Jenkins string credential holding a GitHub token that may create releases on the repo
+  default: GitHub-Agents
+  when: "{{ release and ci == 'jenkins' }}"

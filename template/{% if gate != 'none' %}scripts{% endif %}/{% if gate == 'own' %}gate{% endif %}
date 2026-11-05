@@ -1,0 +1,18 @@
+#!/bin/sh
+# Judge the change this working tree makes since BASE: this repo's quality gate. A starter
+# from the agent-estate template, which `copier update` never touches again: replace its
+# body with the repo's own checks.
+#
+#   scripts/gate [BASE]     BASE is any git revision; default main.
+#
+# CI runs it on every pull request (from the merge base) and on main, and reads only its
+# exit status: 0 when the change passes, 1 when it fails, 2 when it could not be judged
+# (a tool missing, BASE not a commit). It may write quality.md at the repo root saying why,
+# which Jenkins archives and GitHub Actions shows as the job summary. It runs on a fresh
+# checkout, so it installs or builds whatever its checks need itself. Typically: the
+# tests, the linters, and anything more on the lines the change adds, with a change to
+# docs alone allowed to skip what cannot fail on it.
+set -eu
+
+echo "scripts/gate: not written yet; give it this repo's checks (its header says what CI expects)" >&2
+exit 2
