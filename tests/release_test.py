@@ -78,6 +78,17 @@ class Release(unittest.TestCase):
         self.git("add", "--all")
         self.git("commit", "-qm", message)
 
+    def on_main(self, files):
+        """Commits ``files`` on main, pushes it, and cuts ``change`` afresh from it."""
+        self.git("switch", "-q", "main")
+        self.commit(files)
+        self.git("push", "-q", "origin", "main")
+        self.git("switch", "-q", "-C", "change")
+
+    def package(self, body):
+        """Gives the repo an executable scripts/package running ``body``."""
+        self.write("scripts/package", "#!/bin/sh\nset -e\n" + body).chmod(0o755)
+
     def run_release(self, *args, releases="", gh_fail=""):
         env = {**ENV, "PATH": f"{self.bin}:{ENV['PATH']}", "RELEASES": releases,
                "GH_FAIL": gh_fail, "GH_LOG": str(self.gh_log)}
@@ -102,7 +113,7 @@ class Release(unittest.TestCase):
             with self.subTest(version):
                 self.commit({"pyproject.toml": pyproject(version), "p/cli.py": version})
                 r = self.run_release("raised", "main")
-                self.assertNotEqual(r.returncode, 0)
+                self.assertEqual(r.returncode, 1)
                 self.assertIn(f"version is {version}, not greater than main's 0.9.0", r.stderr)
 
     def test_raised_passes_a_change_to_exempt_paths_alone(self):
@@ -126,26 +137,47 @@ class Release(unittest.TestCase):
     def test_raised_takes_release_exempt_from_the_target_not_the_change(self):
         self.commit({".release-exempt": "# the logo\nassets\n", "assets/logo.svg": "x"})
         r = self.run_release("raised", "main")
-        self.assertNotEqual(r.returncode, 0, "the change's own .release-exempt must not count")
-        self.git("switch", "-q", "main")
-        self.commit({".release-exempt": "# the logo\nassets\n"})
-        self.git("push", "-q", "origin", "main")
-        self.git("switch", "-q", "change")
-        self.git("reset", "-q", "--hard", "main")
+        self.assertEqual(r.returncode, 1, "the change's own .release-exempt must not count")
+        self.on_main({".release-exempt": "# the logo\nassets\n"})
         self.commit({"assets/logo.svg": "y", "assets/deep/x.png": "y"})
         r = self.run_release("raised", "main")
         self.assertEqual((r.returncode, r.stderr), (0, ""))
 
-    def test_raised_fails_a_pyproject_without_a_project_version(self):
+    def test_raised_orders_pre_releases_below_their_final_release(self):
+        # (main's version, the change's, whether the change's is greater)
+        cases = [("1.0.0rc1", "1.0.0", True), ("1.0.0", "1.0.0rc1", False),
+                 ("1.0.0rc1", "1.0.0rc2", True), ("1.0.0b2", "1.0.0rc1", True),
+                 ("1.0.0a1", "1.0.0b1", True), ("1.0.0.dev1", "1.0.0a1", True),
+                 ("1.0.0-rc.1", "1.0.0", True), ("1.0.0", "1.0.0.post1", True),
+                 ("1.0.0.post1", "1.0.1rc1", True), ("1.0", "1.0.0", False),
+                 ("1.9.0", "1.10.0", True), ("2.0.0", "1.99.99", False)]
+        for old, new, greater in cases:
+            with self.subTest(old=old, new=new):
+                self.on_main({"pyproject.toml": pyproject(old)})
+                self.commit({"pyproject.toml": pyproject(new), "p/cli.py": new})
+                r = self.run_release("raised", "main")
+                self.assertEqual(r.returncode, 0 if greater else 1, r.stderr)
+
+    def test_raised_reads_the_version_however_toml_spells_it(self):
+        for line in ('version="1.0.0"', "version = '1.0.0'", 'version = "1.0.0"  # bumped',
+                     'version = "1.0.0"\r'):
+            with self.subTest(line=line):
+                text = f'[project]  # the package\nname = "p"\n{line}\n[tool.x]\nversion = "0"\n'
+                self.commit({"pyproject.toml": text, "p/cli.py": line})
+                r = self.run_release("raised", "main")
+                self.assertEqual((r.returncode, r.stderr), (0, ""))
+
+    def test_raised_fails_with_2_on_a_pyproject_without_a_project_version(self):
         self.commit({"pyproject.toml": '[project]\nname = "p"\n'})
         r = self.run_release("raised", "main")
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn("no [project] version in pyproject.toml", r.stderr)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("no version in pyproject.toml's [project] table", r.stderr)
 
-    def test_raised_fails_on_a_target_origin_lacks(self):
+    def test_raised_fails_with_2_on_a_target_origin_lacks(self):
         self.commit({"p/cli.py": "2"})
         r = self.run_release("raised", "nope")
-        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("cannot fetch nope", r.stderr)
 
     # --- changed ------------------------------------------------------------
 
@@ -188,26 +220,36 @@ class Release(unittest.TestCase):
                 self.assertEqual(self.created(),
                                  [f"v0.9.0 --target {head} --title v0.9.0 --generate-notes"])
 
-    def test_publish_attaches_every_file_scripts_package_left(self):
-        package = self.write("scripts/package", "#!/bin/sh\n")
-        package.chmod(0o755)
-        self.write("dist/release/p-linux-x86_64", "b")
-        self.write("dist/release/licenses.txt", "l")
+    def test_publish_runs_scripts_package_and_attaches_every_file_it_left(self):
+        self.write("dist/release/stale", "from an earlier build")
+        self.package("rm -rf dist/release\nmkdir -p dist/release\n"
+                     "echo b > dist/release/p-linux-x86_64\necho l > dist/release/licenses.txt\n"
+                     "echo s > dist/release/.sig\n")
         r = self.run_release("publish")
         self.assertEqual(r.returncode, 0, r.stderr)
         [call] = self.created()
-        self.assertTrue(call.startswith("v0.9.0 dist/release/licenses.txt dist/release/p-linux-x86_64 "),
-                        call)
+        self.assertTrue(call.startswith("v0.9.0 dist/release/licenses.txt dist/release/p-linux-x86_64 "
+                                        "dist/release/.sig --target "), call)
 
-    def test_publish_fails_when_scripts_package_left_nothing(self):
-        self.write("scripts/package", "#!/bin/sh\n").chmod(0o755)
-        for made in (False, True):
-            with self.subTest(dist_release_exists=made):
-                if made:
-                    (self.root / "dist/release").mkdir(parents=True)
+    def test_publish_runs_no_package_when_the_version_is_released(self):
+        self.package("touch packaged\n")
+        r = self.run_release("publish", releases="v0.9.0")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse((self.root / "packaged").exists())
+
+    def test_publish_creates_nothing_when_scripts_package_fails_or_leaves_no_plain_file(self):
+        bodies = {"exit 3\n": "scripts/package failed",
+                  "true\n": "left no file in dist/release/",
+                  "mkdir -p dist/release\n": "left no file in dist/release/",
+                  "mkdir -p dist/release/a/b\necho x > dist/release/z\n": "dist/release/a is not a file",
+                  "mkdir -p dist/release\necho x > 'dist/release/a#b'\n": "has a # in its name"}
+        for body, message in bodies.items():
+            with self.subTest(body=body):
+                subprocess.run(["rm", "-rf", self.root / "dist"], check=True)
+                self.package(body)
                 r = self.run_release("publish")
                 self.assertNotEqual(r.returncode, 0)
-                self.assertIn("dist/release", r.stderr)
+                self.assertIn(message, r.stderr)
                 self.assertEqual(self.created(), [])
 
     def test_publish_fails_on_any_other_gh_error_without_creating(self):

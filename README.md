@@ -71,7 +71,7 @@ reasons):
   auto-merge trusts statuses from that login only. Keep the credential in the job's folder store, not the global one;
 - an **agent labelled `jenkins_agent_label`** (default `untrusted`) that holds nothing an agent should not have,
   restricted per node with the Job Restrictions plugin, with `uv`, `git`, `curl`, `shellcheck` and `actionlint` on
-  it.
+  it, and `gh` with `release`.
 
 ### Releases
 
@@ -82,10 +82,13 @@ request overtaken by another that raised to the same version is held. `scripts/r
 paths are exempt, and how versions compare. The job then needs:
 
 - a **string credential** named by `jenkins_release_credential` (default `GitHub-Agents`), holding a GitHub token
-  that may create releases on the repo (Contents: read and write);
-- optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and writes it to
-  `dist/release/`. The Package stage runs it only when the change touches a released path; without it the release
-  has only GitHub's source archives;
+  that may create releases on the repo (Contents: read and write). It is bound on the same agent that builds the
+  agents' pull requests, whose code can read it (`TODO.md`), so it must be a token the agents already hold, as
+  `GitHub-Agents` is; never one they should not have;
+- optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and leaves it as
+  plain files directly in `dist/release/`. The Package stage runs it on a pull request that touches a released path,
+  and `scripts/release publish` runs it again on `main` right before it releases; without it the release has only
+  GitHub's source archives;
 - optionally a repo-owned **`.release-exempt`**: more paths whose changes reach no user, one git glob pathspec per
   line, beside the built-in docs, tests and CI.
 

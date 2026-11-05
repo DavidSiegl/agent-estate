@@ -24,6 +24,11 @@
   both check before either merges both pass, and the second merge ships unreleased. Closed by strict status checks on
   the `ci-cd` ruleset (`init/github-rules.py`), with auto-merge updating a branch that is behind.
 
+- **The release token sits on the agent that runs agents' code.** Review 01, F1: "The Release stage binds a
+  Contents: read and write token (`jenkins_release_credential`) in the job that builds agents' pull requests on the
+  `untrusted` agent." A pull request can bind it in its own Jenkinsfile, or plant a `gh` that the next Release on
+  `main` runs. Harmless only while the token is one the agents already hold, which the README requires. Closed by
+  releasing from a job on a trusted agent that builds `main` only, with a token agents never hold.
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.
