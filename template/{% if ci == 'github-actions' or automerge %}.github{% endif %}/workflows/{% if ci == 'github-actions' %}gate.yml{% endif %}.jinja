@@ -1,5 +1,6 @@
-# Runs the quality gate (scripts/gate) on every pull request into main, and fails on GATE: ERROR or when the gate could not judge. Its job, gate, is
-# the check the main ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
+# Runs the quality gate (scripts/gate) on every pull request into main, and fails on
+# GATE: ERROR or when the gate could not judge. Its job, gate, is the check the main
+# ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
 # that a pull request released from a hold (docs/agents/README.md) gets a fresh run to
 # merge on.
 name: Gate
@@ -35,7 +36,9 @@ jobs:
       - name: Gate
         env:
           BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
-        run: scripts/gate "$(git merge-base HEAD "$BASE")"
+        run: |
+          base=$(git merge-base HEAD "$BASE")
+          scripts/gate "$base"
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi

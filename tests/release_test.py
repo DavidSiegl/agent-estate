@@ -2,7 +2,7 @@
 """Tests for the template's scripts/release: run `python3 tests/release_test.py`.
 Each test runs it, straight from template/, in a scratch repository on branch
 `change`, cut from a `main` that a bare origin also holds, with pyproject.toml's
-[project] version 0.9.0 there. `publish` runs against a fake `gh` that records
+[project] version 0.9.0 there. `due` and `publish` run against a fake `gh` that records
 its calls and answers from the releases a test gives it."""
 import os
 import stat
@@ -89,9 +89,9 @@ class Release(unittest.TestCase):
         """Gives the repo an executable scripts/package running ``body``."""
         self.write("scripts/package", "#!/bin/sh\nset -e\n" + body).chmod(0o755)
 
-    def run_release(self, *args, releases="", gh_fail="", extra_env=None):
+    def run_release(self, *args, releases="", gh_fail=""):
         env = {**ENV, "PATH": f"{self.bin}:{ENV['PATH']}", "RELEASES": releases,
-               "GH_FAIL": gh_fail, "GH_LOG": str(self.gh_log), **(extra_env or {})}
+               "GH_FAIL": gh_fail, "GH_LOG": str(self.gh_log)}
         return subprocess.run(["sh", str(SCRIPT), *args], cwd=self.root, env=env,
                               capture_output=True, text=True, check=False)
 
@@ -228,41 +228,29 @@ class Release(unittest.TestCase):
                 self.assertEqual(self.created(),
                                  [f"v0.9.0 --target {head} --title v0.9.0 --generate-notes"])
 
-    def test_publish_runs_scripts_package_and_attaches_every_file_it_left(self):
-        self.write("dist/release/stale", "from an earlier build")
-        self.package("rm -rf dist/release\nmkdir -p dist/release\n"
-                     "echo b > dist/release/p-linux-x86_64\necho l > dist/release/licenses.txt\n"
-                     "echo s > dist/release/.sig\n")
+    def test_publish_attaches_every_file_in_dist_release_and_never_runs_scripts_package(self):
+        self.package("touch packaged\n")
+        self.write("dist/release/p-linux-x86_64", "b")
+        self.write("dist/release/licenses.txt", "l")
+        self.write("dist/release/.sig", "s")
         r = self.run_release("publish")
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse((self.root / "packaged").exists())
         [call] = self.created()
         self.assertTrue(call.startswith("v0.9.0 dist/release/licenses.txt dist/release/p-linux-x86_64 "
                                         "dist/release/.sig --target "), call)
 
-    def test_publish_runs_scripts_package_without_the_release_token(self):
-        self.package('mkdir -p dist/release\n'
-                     'echo "${GH_TOKEN-unset} ${GITHUB_TOKEN-unset}" > dist/release/env\n')
-        r = self.run_release("publish", extra_env={"GH_TOKEN": "secret", "GITHUB_TOKEN": "secret"})
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual((self.root / "dist/release/env").read_text(), "unset unset\n")
-        self.assertEqual(len(self.created()), 1)
-
-    def test_publish_runs_no_package_when_the_version_is_released(self):
-        self.package("touch packaged\n")
-        r = self.run_release("publish", releases="v0.9.0")
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertFalse((self.root / "packaged").exists())
-
-    def test_publish_creates_nothing_when_scripts_package_fails_or_leaves_no_plain_file(self):
-        bodies = {"exit 3\n": "scripts/package failed",
-                  "true\n": "left no file in dist/release/",
-                  "mkdir -p dist/release\n": "left no file in dist/release/",
-                  "mkdir -p dist/release/a/b\necho x > dist/release/z\n": "dist/release/a is not a file",
-                  "mkdir -p dist/release\necho x > 'dist/release/a#b'\n": "has a # in its name"}
-        for body, message in bodies.items():
-            with self.subTest(body=body):
+    def test_publish_with_scripts_package_creates_nothing_unless_dist_release_holds_only_files(self):
+        trees = {(): "dist/release/ holds no file",
+                 ("dist/release/a/b", "dist/release/z"): "dist/release/a is not a file",
+                 ("dist/release/a#b",): "has a # in its name"}
+        self.package("true\n")
+        for files, message in trees.items():
+            with self.subTest(files=files):
                 subprocess.run(["rm", "-rf", self.root / "dist"], check=True)
-                self.package(body)
+                (self.root / "dist/release").mkdir(parents=True)
+                for rel in files:
+                    self.write(rel, "x")
                 r = self.run_release("publish")
                 self.assertNotEqual(r.returncode, 0)
                 self.assertIn(message, r.stderr)
@@ -274,10 +262,29 @@ class Release(unittest.TestCase):
         self.assertIn("Bad credentials", r.stderr)
         self.assertEqual(self.created(), [])
 
+    # --- due ----------------------------------------------------------------
+
+    def test_due_is_0_for_an_unreleased_version_and_1_for_a_released_one(self):
+        for releases, status, said in (("", 0, "v0.9.0 is due"), ("v0.8.10", 0, "v0.9.0 is due"),
+                                       ("v0.9.0\nv0.8.0", 1, "v0.9.0 is already released")):
+            with self.subTest(releases=releases):
+                r = self.run_release("due", releases=releases)
+                self.assertEqual((r.returncode, r.stderr), (status, ""))
+                self.assertIn(said, r.stdout)
+        self.assertEqual(self.created(), [])
+
+    def test_due_fails_with_2_below_the_latest_release_or_on_a_gh_error(self):
+        for releases, gh_fail, message in (("v0.10.0", "", "below the latest release v0.10.0"),
+                                           ("", "HTTP 401: Bad credentials", "Bad credentials")):
+            with self.subTest(message=message):
+                r = self.run_release("due", releases=releases, gh_fail=gh_fail)
+                self.assertEqual(r.returncode, 2)
+                self.assertIn(message, r.stderr)
+
     # --- usage --------------------------------------------------------------
 
     def test_an_unknown_or_missing_subcommand_fails_with_usage(self):
-        for args in ((), ("bump",), ("changed",), ("raised",)):
+        for args in ((), ("bump",), ("changed",), ("raised",), ("due", "x"), ("publish", "x")):
             with self.subTest(args=args):
                 r = self.run_release(*args)
                 self.assertEqual(r.returncode, 2)

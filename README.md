@@ -87,8 +87,8 @@ paths are exempt, and how versions compare. The job then needs:
   `GitHub-Agents` is; never one they should not have;
 - optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and leaves it as
   plain files directly in `dist/release/`. The Package stage runs it on a pull request that touches a released path,
-  and `scripts/release publish` runs it again on `main` right before it releases; without it the release has only
-  GitHub's source archives;
+  and the Release stage again on `main` when the version is due, without the credential, right before it publishes;
+  without it the release has only GitHub's source archives;
 - optionally a repo-owned **`.release-exempt`**: more paths whose changes reach no user, one git glob pathspec per
   line, beside the built-in docs, tests and CI.
 
