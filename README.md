@@ -10,7 +10,8 @@ them.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger,
   readme-sync, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
-  template, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
+  template, the `chore` agent in `agents/`, which takes fully specified work (run the tests, apply a given edit) on
+  Sonnet instead of the session's model, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
   skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
   without the README (`hooks/readme-sync.py`'s docstring has the rule), and the context handover.
   `.claude-plugin/marketplace.json` makes this repo its marketplace.
