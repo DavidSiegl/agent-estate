@@ -27,7 +27,10 @@
 - **The release token sits on the agent that runs agents' code.** Review 01, F1: "The Release stage binds a
   Contents: read and write token (`jenkins_release_credential`) in the job that builds agents' pull requests on the
   `untrusted` agent." A pull request can bind it in its own Jenkinsfile, or plant a `gh` that the next Release on
-  `main` runs. Harmless only while the token is one the agents already hold, which the README requires. Closed by
+  `main` runs. Packaging, though run outside `withCredentials` (F15), can also reach it, as review 01's F16 found: as
+  the same user in the same workspace, scripts/package and its build dependencies can leave a process that reads
+  `scripts/release publish`'s `/proc/<pid>/environ`, or rewrite `scripts/release` or `.git/config` before publish
+  runs them. Harmless only while the token is one the agents already hold, which the README requires. Closed by
   releasing from a job on a trusted agent that builds `main` only, with a token agents never hold.
 
 ### ticket-sync
