@@ -45,13 +45,17 @@ pipeline {
                         ''').trim()
                     } else {
                         // A branch build: since the last successful build, or the last commit when
-                        // there is none or a force-push removed it, or (a root commit) none: the
-                        // first push of a repo is judged as an empty change.
+                        // there is none or a force-push removed it, or (a root commit) since a
+                        // commit of the empty tree, made here and never pushed, so the first push
+                        // of a repo is judged whole, tests included, before it can be released.
                         def previous = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
                         def kept = previous && sh(returnStatus: true,
                                                   script: 'git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}"') == 0
                         def parent = sh(returnStatus: true, script: 'git cat-file -e "HEAD^1^{commit}"') == 0
-                        base = kept ? previous : (parent ? 'HEAD^1' : 'HEAD')
+                        base = kept ? previous : parent ? 'HEAD^1' : sh(returnStdout: true, script: '''
+                            empty=$(git hash-object -w -t tree /dev/null)
+                            git -c user.name=gate -c user.email=gate@localhost commit-tree "$empty" -m empty </dev/null
+                        ''').trim()
                     }
                     // The base reaches the shell as an environment variable, never as Groovy-built
                     // shell code.

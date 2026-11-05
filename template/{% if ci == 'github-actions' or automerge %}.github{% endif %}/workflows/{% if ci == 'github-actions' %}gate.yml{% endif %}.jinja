@@ -68,7 +68,8 @@ jobs:
       # The change this run judges, from GATE_BASE to HEAD: a pull request's since it left
       # main{% if release %}; a push's since the head of the last run on main that passed, as
       # Jenkins's GIT_PREVIOUS_SUCCESSFUL_COMMIT, else since the last commit, else (a root
-      # commit) none: the first push of a repo is judged as an empty change{% endif %}.
+      # commit) since a commit of the empty tree, made here and never pushed, so the first
+      # push of a repo is judged whole, tests included, before it can be released{% endif %}.
       - name: Change
         env:
           PR_BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
@@ -87,7 +88,8 @@ jobs:
             elif git cat-file -e 'HEAD^1^{commit}' 2>/dev/null; then
               base=$(git rev-parse HEAD^1)
             else
-              base=$(git rev-parse HEAD)
+              empty=$(git hash-object -w -t tree /dev/null)
+              base=$(git -c user.name=gate -c user.email=gate@localhost commit-tree "$empty" -m empty </dev/null)
             fi
           fi
 {%- else %}
