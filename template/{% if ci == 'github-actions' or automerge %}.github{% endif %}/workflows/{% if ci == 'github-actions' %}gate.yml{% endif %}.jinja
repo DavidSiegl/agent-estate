@@ -5,10 +5,12 @@
 # merge on.
 {%- if release %}
 #
-# With releases it also runs on each push to main, as Jenkins builds main: the gate judges
-# the push, and only once it passes does the release job release a version that has no
-# release yet (scripts/release says what and when). On a pull request, the gate job also
-# checks the version raise and runs the repo's scripts/package (steps Version and Package).
+# With releases it also runs on each push to main, as Jenkins builds main: one run at a
+# time in push order, the gate judging everything since the last run on main that passed,
+# and only once it passes does the release job release a version that has no release yet
+# (scripts/release says what and when). So a push that failed the gate is judged again with
+# the next, and never released unjudged. On a pull request, the gate job also checks the
+# version raise and runs the repo's scripts/package (steps Version and Package).
 {%- endif %}
 name: Gate
 
@@ -23,11 +25,28 @@ on:
 
 permissions:
   contents: read
+{%- if release %}
+
+# Runs on main one at a time, so two cannot both find a version unreleased and race to
+# release it. GitHub keeps one waiting run and cancels any older waiting one: of several
+# pushes arriving while a run is busy, only the last runs, judging the others' commits with
+# it (GATE_BASE), and a version raised and raised again meanwhile goes out as the second
+# alone. Pull request runs are not grouped.
+concurrency:
+  group: {% raw %}${{ github.event_name == 'push' && 'main' || github.run_id }}{% endraw %}
+  cancel-in-progress: false
+{%- endif %}
 
 jobs:
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+{%- if release %}
+    permissions:
+      contents: read
+      # gh run list, for the last run on main that passed.
+      actions: read
+{%- endif %}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,22 +66,29 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 {%- endif %}
       # The change this run judges, from GATE_BASE to HEAD: a pull request's since it left
-      # main{% if release %}; a push's since the commit main pointed at before it, or the last
-      # commit when that is gone (a force-push) or there is none{% endif %}.
+      # main{% if release %}; a push's since the head of the last run on main that passed, as
+      # Jenkins's GIT_PREVIOUS_SUCCESSFUL_COMMIT, else since the last commit, else (a root
+      # commit) none: the first push of a repo is judged as an empty change{% endif %}.
       - name: Change
         env:
           PR_BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
 {%- if release %}
-          BEFORE: {% raw %}${{ github.event.before }}{% endraw %}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
 {%- endif %}
         run: |
 {%- if release %}
           if [ -n "$PR_BASE" ]; then
             base=$(git merge-base HEAD "$PR_BASE")
-          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            base=$BEFORE
           else
-            base=$(git rev-parse HEAD^1)
+            passed=$(gh run list --workflow gate.yml --branch main --event push --status success \
+              --limit 1 --json headSha --jq '.[0].headSha // ""')
+            if [ -n "$passed" ] && git cat-file -e "$passed^{commit}" 2>/dev/null; then
+              base=$passed
+            elif git cat-file -e 'HEAD^1^{commit}' 2>/dev/null; then
+              base=$(git rev-parse HEAD^1)
+            else
+              base=$(git rev-parse HEAD)
+            fi
           fi
 {%- else %}
           base=$(git merge-base HEAD "$PR_BASE")
@@ -103,12 +129,8 @@ jobs:
   # with AUTOMERGE_TOKEN starts this workflow as any push does, which one made with that
   # token itself would not. scripts/package runs in a step with no token in its environment,
   # since packaging runs build tools and their dependencies; that keeps the token out of its
-  # environment only, not out of its reach (scripts/release's header, publish).
-  #
-  # One run at a time, so two cannot both find a version unreleased and race to release it.
-  # GitHub keeps one waiting run and cancels any older waiting one, so of several pushes
-  # arriving while a release runs only the last is released: a version raised and raised
-  # again before the first is released goes out as the second alone.
+  # environment only, not out of its reach (scripts/release's header, publish). The
+  # workflow's concurrency group keeps releases in push order.
   release:
     needs: gate
     if: github.event_name == 'push'
@@ -116,9 +138,6 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
-    concurrency:
-      group: release
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

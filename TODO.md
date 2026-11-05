@@ -34,16 +34,6 @@
   releasing from a job on a trusted agent that builds `main` only, with a token agents never hold. GitHub Actions'
   `release` job (in `gate.yml`) already runs so: on `main` only, on a fresh runner, with the workflow's own token.
 
-## Decided against
-
-- **A gate for any language as commands in Copier answers** (say `test_command`, `lint_command`), rendered into the
-  Jenkinsfile and `gate.yml`. Rejected for the generic template (2026-11-05): the logic would live in answer strings,
-  untested and unlintable, duplicated across both CI files. A repo-owned `scripts/gate` (`gate: own`) holds it instead,
-  tested and run alike locally and in CI.
-- **Per-language presets** (`gate: rust`, `gate: node`, …). Rejected with the above: no fixed set covers "any project",
-  and each preset is upkeep for a language few repos use. Only octoflow-ai's Python gate is the template's, because it
-  is shared estate tooling, not a preset.
-
 - **The CI files each repeat `scripts/release`'s exit-status dispatch.** Review 02, F7: "the exit-status dispatch on
   `scripts/release changed` / `due` is now copied in three CI files" (the Jenkinsfile's Package and Release stages,
   `gate.yml`'s Package step and release job), so a change to that exit contract must be repeated in each. Closed by
@@ -64,3 +54,13 @@ Paths relative to `plugins/agent-estate/hooks/`.
 - **A linked worktree syncs into its own `.scratch/`.** `agent.ticketSync` lives in the shared git config, so a session
   in a worktree restores every open ticket into the worktree's fresh `.scratch/`. Closed by resolving the main checkout
   (`git rev-parse --git-common-dir`) in `opted_in()`.
+
+## Decided against
+
+- **A gate for any language as commands in Copier answers** (say `test_command`, `lint_command`), rendered into the
+  Jenkinsfile and `gate.yml`. Rejected for the generic template (2026-11-05): the logic would live in answer strings,
+  untested and unlintable, duplicated across both CI files. A repo-owned `scripts/gate` (`gate: own`) holds it instead,
+  tested and run alike locally and in CI.
+- **Per-language presets** (`gate: rust`, `gate: node`, …). Rejected with the above: no fixed set covers "any project",
+  and each preset is upkeep for a language few repos use. Only octoflow-ai's Python gate is the template's, because it
+  is shared estate tooling, not a preset.
