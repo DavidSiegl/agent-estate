@@ -42,12 +42,13 @@ fix or justify each finding to weigh.
 
 {% if ci == 'jenkins' -%}
 Jenkins builds every pull request and `main` with the `Jenkinsfile`, running `scripts/gate` over a pull request since
-its merge base and over `main` since its last successful build, skipping it when only docs changed (`docs/` and
-top-level Markdown), and reports `continuous-integration/jenkins/pr-head`
-on each pull request through its GitHub App.
+its merge base and over `main` since its last successful build, and reports `continuous-integration/jenkins/pr-head`
+on each pull request through its GitHub App. A change to docs alone (`docs/` and top-level Markdown) runs the gate's
+linters and no tests.
 {%- else -%}
 The Gate workflow (`.github/workflows/gate.yml`) runs `scripts/gate` from the merge base on every pull request into
-`main` that changes more than docs (`docs/` and top-level Markdown), as the check `gate`.
+`main`, as the check `gate`. A change to docs alone (`docs/` and top-level Markdown) runs the gate's linters and no
+tests.
 {%- endif %}
 {%- if automerge %}
 

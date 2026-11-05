@@ -89,9 +89,9 @@ class Release(unittest.TestCase):
         """Gives the repo an executable scripts/package running ``body``."""
         self.write("scripts/package", "#!/bin/sh\nset -e\n" + body).chmod(0o755)
 
-    def run_release(self, *args, releases="", gh_fail=""):
+    def run_release(self, *args, releases="", gh_fail="", extra_env=None):
         env = {**ENV, "PATH": f"{self.bin}:{ENV['PATH']}", "RELEASES": releases,
-               "GH_FAIL": gh_fail, "GH_LOG": str(self.gh_log)}
+               "GH_FAIL": gh_fail, "GH_LOG": str(self.gh_log), **(extra_env or {})}
         return subprocess.run(["sh", str(SCRIPT), *args], cwd=self.root, env=env,
                               capture_output=True, text=True, check=False)
 
@@ -160,10 +160,18 @@ class Release(unittest.TestCase):
 
     def test_raised_reads_the_version_however_toml_spells_it(self):
         for line in ('version="1.0.0"', "version = '1.0.0'", 'version = "1.0.0"  # bumped',
-                     'version = "1.0.0"\r'):
+                     'version = "1.0.0"\r', '  version = "1.0.0"', '\tversion\t=\t"1.0.0"'):
             with self.subTest(line=line):
                 text = f'[project]  # the package\nname = "p"\n{line}\n[tool.x]\nversion = "0"\n'
                 self.commit({"pyproject.toml": text, "p/cli.py": line})
+                r = self.run_release("raised", "main")
+                self.assertEqual((r.returncode, r.stderr), (0, ""))
+
+    def test_raised_reads_a_project_header_however_toml_spells_it(self):
+        for header in ("[ project ]", "  [project]", "[project]\r", "[\tproject\t]  # p"):
+            with self.subTest(header=header):
+                text = f'{header}\nname = "p"\nversion = "1.0.0"\n  [ tool.x ]\nversion = "0"\n'
+                self.commit({"pyproject.toml": text, "p/cli.py": header})
                 r = self.run_release("raised", "main")
                 self.assertEqual((r.returncode, r.stderr), (0, ""))
 
@@ -230,6 +238,14 @@ class Release(unittest.TestCase):
         [call] = self.created()
         self.assertTrue(call.startswith("v0.9.0 dist/release/licenses.txt dist/release/p-linux-x86_64 "
                                         "dist/release/.sig --target "), call)
+
+    def test_publish_runs_scripts_package_without_the_release_token(self):
+        self.package('mkdir -p dist/release\n'
+                     'echo "${GH_TOKEN-unset} ${GITHUB_TOKEN-unset}" > dist/release/env\n')
+        r = self.run_release("publish", extra_env={"GH_TOKEN": "secret", "GITHUB_TOKEN": "secret"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual((self.root / "dist/release/env").read_text(), "unset unset\n")
+        self.assertEqual(len(self.created()), 1)
 
     def test_publish_runs_no_package_when_the_version_is_released(self):
         self.package("touch packaged\n")

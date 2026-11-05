@@ -1,5 +1,4 @@
-# Runs the quality gate (scripts/gate) on every pull request into main that changes more
-# than docs, and fails on GATE: ERROR or when the gate could not judge. Its job, gate, is
+# Runs the quality gate (scripts/gate) on every pull request into main, and fails on GATE: ERROR or when the gate could not judge. Its job, gate, is
 # the check the main ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
 # that a pull request released from a hold (docs/agents/README.md) gets a fresh run to
 # merge on.
@@ -36,15 +35,7 @@ jobs:
       - name: Gate
         env:
           BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
-        # A change to docs alone (docs/ and Markdown at the top level) passes ungated: the
-        # owner's rule, 2026-11-05. A git error runs the gate.
-        run: |
-          base=$(git merge-base HEAD "$BASE")
-          if git diff --quiet "$base" HEAD -- . ':(exclude)docs' ':(exclude,glob)*.md'; then
-            echo "Only docs changed: no gate."
-            exit 0
-          fi
-          scripts/gate "$base"
+        run: scripts/gate "$(git merge-base HEAD "$BASE")"
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi

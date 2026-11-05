@@ -29,6 +29,7 @@
   `untrusted` agent." A pull request can bind it in its own Jenkinsfile, or plant a `gh` that the next Release on
   `main` runs. Harmless only while the token is one the agents already hold, which the README requires. Closed by
   releasing from a job on a trusted agent that builds `main` only, with a token agents never hold.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.

@@ -71,7 +71,7 @@ reasons):
   auto-merge trusts statuses from that login only. Keep the credential in the job's folder store, not the global one;
 - an **agent labelled `jenkins_agent_label`** (default `untrusted`) that holds nothing an agent should not have,
   restricted per node with the Job Restrictions plugin, with `uv`, `git`, `curl`, `shellcheck` and `actionlint` on
-  it, and `gh` with `release`.
+  it, and also `gh` when `release` is on.
 
 ### Releases
 
