@@ -43,7 +43,8 @@
 #   Cargo.toml       [package] version, else       cargo set-version --bump LEVEL
 #                    [workspace.package] version     (cargo-edit)
 #   package.json     "version"                     npm version LEVEL --no-git-tag-version
-#   VERSION          its first line                an edit
+#   VERSION          its first line, a leading v   an edit
+#                    dropped (the tag adds one)
 #
 # So a pyproject.toml whose version is dynamic yields to the Cargo.toml or VERSION that
 # holds it. TOML is read however a header or key may be spaced or indented, with either
@@ -127,7 +128,7 @@ touches_released() {
 }
 
 # Prints the version key of the TOML table whose name matches the basic regular expression
-# $2 in the TOML text on standard input, or nothing when it has none.
+# $1 in the TOML text on standard input, or nothing when it has none.
 toml_version() {
     # From the table's header to the next line shaped like a table header.
     tr -d '\r' | sed -n "
@@ -151,7 +152,8 @@ version_at() {
             package.json)
                 version=$(printf '%s\n' "$text" | tr -d '\r' | sed -n '
                     s/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1) ;;
-            VERSION) version=$(printf '%s\n' "$text" | head -n 1 | tr -d '\r[:space:]') ;;
+            VERSION) version=$(printf '%s\n' "$text" | head -n 1 | tr -d '\r[:space:]' |
+                sed 's/^[vV]//') ;;
         esac
         if [ -n "$version" ]; then
             echo "$file $version"
@@ -235,9 +237,9 @@ raised() {
     esac
     old=$(version_at "origin/$target")
     new=$(version_at HEAD)
-    file=${new% *} old=${old#* } new=${new#* }
+    oldfile=${old%% *} file=${new%% *} old=${old#* } new=${new#* }
     if ! version_greater "$new" "$old"; then
-        echo "scripts/release: $file's version is $new, not greater than $target's $old;" \
+        echo "scripts/release: $file's version is $new, not greater than $old in $target's $oldfile;" \
             "raise it with $(bump_with "$file"), or the merge goes unreleased" >&2
         exit 1
     fi

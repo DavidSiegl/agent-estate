@@ -32,7 +32,7 @@
   `scripts/release publish`'s `/proc/<pid>/environ`, or rewrite `scripts/release` or `.git/config` before publish
   runs them. Harmless only while the token is one the agents already hold, which the README requires. Closed by
   releasing from a job on a trusted agent that builds `main` only, with a token agents never hold. GitHub Actions'
-  `release.yml` already runs so: on `main` only, on a fresh runner, with the workflow's own token.
+  `release` job (in `gate.yml`) already runs so: on `main` only, on a fresh runner, with the workflow's own token.
 
 ## Decided against
 
@@ -43,6 +43,12 @@
 - **Per-language presets** (`gate: rust`, `gate: node`, …). Rejected with the above: no fixed set covers "any project",
   and each preset is upkeep for a language few repos use. Only octoflow-ai's Python gate is the template's, because it
   is shared estate tooling, not a preset.
+
+- **The CI files each repeat `scripts/release`'s exit-status dispatch.** Review 02, F7: "the exit-status dispatch on
+  `scripts/release changed` / `due` is now copied in three CI files" (the Jenkinsfile's Package and Release stages,
+  `gate.yml`'s Package step and release job), so a change to that exit contract must be repeated in each. Closed by
+  subcommands that act instead of answering (say `scripts/release package-if-changed BASE`), leaving CI one call
+  whose failure is the only outcome to handle.
 
 ### ticket-sync
 

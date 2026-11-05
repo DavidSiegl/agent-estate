@@ -117,7 +117,7 @@ class Release(unittest.TestCase):
                 self.commit({"pyproject.toml": pyproject(version), "p/cli.py": version})
                 r = self.run_release("raised", "main")
                 self.assertEqual(r.returncode, 1)
-                self.assertIn(f"version is {version}, not greater than main's 0.9.0", r.stderr)
+                self.assertIn(f"version is {version}, not greater than 0.9.0 in main's pyproject.toml", r.stderr)
 
     def test_raised_passes_a_change_to_exempt_paths_alone(self):
         only = ["docs/agents/README.md", "README.md", "TODO.md", "CLAUDE.md", "tests/test_x.py",
@@ -135,7 +135,7 @@ class Release(unittest.TestCase):
                 self.commit({"docs/notes.md": path, path: path})
                 r = self.run_release("raised", "main")
                 self.assertNotEqual(r.returncode, 0)
-                self.assertIn("version is 0.9.0, not greater than main's 0.9.0", r.stderr)
+                self.assertIn("version is 0.9.0, not greater than 0.9.0 in main's pyproject.toml", r.stderr)
 
     def test_raised_takes_release_exempt_from_the_target_not_the_change(self):
         self.commit({".release-exempt": "# the logo\nassets\n", "assets/logo.svg": "x"})
@@ -192,7 +192,7 @@ class Release(unittest.TestCase):
                 self.commit({name: text.format("1.0.0"), "p/cli.py": name})
                 r = self.run_release("raised", "main")
                 self.assertEqual(r.returncode, 1, r.stderr)
-                self.assertIn(f"{name}'s version is 1.0.0, not greater than main's 1.0.0", r.stderr)
+                self.assertIn(f"{name}'s version is 1.0.0, not greater than 1.0.0 in main's {name}", r.stderr)
                 self.assertIn(tool, r.stderr)
                 self.commit({name: text.format("1.0.1")})
                 r = self.run_release("raised", "main")
@@ -259,6 +259,14 @@ class Release(unittest.TestCase):
                                       capture_output=True, check=True).stdout.strip()
                 self.assertEqual(self.created(),
                                  [f"v0.9.0 --target {head} --title v0.9.0 --generate-notes"])
+
+    def test_publish_tags_a_version_file_spelled_with_a_leading_v_once(self):
+        self.git("rm", "-q", "pyproject.toml")
+        self.commit({"VERSION": "v1.2.3\n"})
+        r = self.run_release("publish")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        [call] = self.created()
+        self.assertTrue(call.startswith("v1.2.3 --target "), call)
 
     def test_publish_attaches_every_file_in_dist_release_and_never_runs_scripts_package(self):
         self.package("touch packaged\n")

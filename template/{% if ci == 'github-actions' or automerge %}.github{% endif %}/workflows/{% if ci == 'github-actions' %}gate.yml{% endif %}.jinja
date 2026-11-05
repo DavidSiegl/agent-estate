@@ -2,14 +2,24 @@
 # GATE: ERROR or when the gate could not judge. Its job, gate, is the check the main
 # ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
 # that a pull request released from a hold (docs/agents/README.md) gets a fresh run to
-# merge on.{% if release %} With releases, it also checks the version raise and runs the
-# repo's scripts/package (steps Version and Package).{% endif %}
+# merge on.
+{%- if release %}
+#
+# With releases it also runs on each push to main, as Jenkins builds main: the gate judges
+# the push, and only once it passes does the release job release a version that has no
+# release yet (scripts/release says what and when). On a pull request, the gate job also
+# checks the version raise and runs the repo's scripts/package (steps Version and Package).
+{%- endif %}
 name: Gate
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+{%- if release %}
+  push:
+    branches: [main]
+{%- endif %}
 
 permissions:
   contents: read
@@ -36,30 +46,46 @@ jobs:
           tar -xzf "$tarball" -C "$RUNNER_TEMP/bin" actionlint
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 {%- endif %}
-      - name: Gate
+      # The change this run judges, from GATE_BASE to HEAD: a pull request's since it left
+      # main{% if release %}; a push's since the commit main pointed at before it, or the last
+      # commit when that is gone (a force-push) or there is none{% endif %}.
+      - name: Change
         env:
-          BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+          PR_BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+{%- if release %}
+          BEFORE: {% raw %}${{ github.event.before }}{% endraw %}
+{%- endif %}
         run: |
-          base=$(git merge-base HEAD "$BASE")
-          scripts/gate "$base"
+{%- if release %}
+          if [ -n "$PR_BASE" ]; then
+            base=$(git merge-base HEAD "$PR_BASE")
+          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            base=$BEFORE
+          else
+            base=$(git rev-parse HEAD^1)
+          fi
+{%- else %}
+          base=$(git merge-base HEAD "$PR_BASE")
+{%- endif %}
+          echo "GATE_BASE=$base" >> "$GITHUB_ENV"
+      - name: Gate
+        run: scripts/gate "$GATE_BASE"
 {%- if release %}
       # A pull request must raise the release version over its base branch's, unless it
       # changes only exempt paths (scripts/release's header).
       - name: Version
+        if: github.event_name == 'pull_request'
         env:
           TARGET: {% raw %}${{ github.base_ref }}{% endraw %}
         run: scripts/release raised "$TARGET"
-      # The repo's own scripts/package, on a change that touches a released path, so one
-      # that breaks the build fails before it is merged and a change to docs alone builds
-      # nothing. The Release workflow runs it itself on main when it releases.
+      # The repo's own scripts/package, on a pull request that touches a released path, so
+      # one that breaks the build fails before it is merged and a change to docs alone
+      # builds nothing. The release job runs it itself on main when it releases.
       - name: Package
-        if: hashFiles('scripts/package') != ''
-        env:
-          BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+        if: github.event_name == 'pull_request' && hashFiles('scripts/package') != ''
         run: |
-          base=$(git merge-base HEAD "$BASE")
           status=0
-          scripts/release changed "$base" || status=$?
+          scripts/release changed "$GATE_BASE" || status=$?
           case $status in
             0) scripts/package ;;
             1) echo 'Only exempt paths changed: nothing to package.' ;;
@@ -69,3 +95,57 @@ jobs:
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi
+{%- if release %}
+
+  # Releases a push to main whose version has no release yet, packaging it first; any other
+  # push finds its release there and builds nothing (scripts/release due and publish). It
+  # releases with the workflow's own token, so it needs no secret: a merge auto-merge makes
+  # with AUTOMERGE_TOKEN starts this workflow as any push does, which one made with that
+  # token itself would not. scripts/package runs in a step with no token in its environment,
+  # since packaging runs build tools and their dependencies; that keeps the token out of its
+  # environment only, not out of its reach (scripts/release's header, publish).
+  #
+  # One run at a time, so two cannot both find a version unreleased and race to release it.
+  # GitHub keeps one waiting run and cancels any older waiting one, so of several pushes
+  # arriving while a release runs only the last is released: a version raised and raised
+  # again before the first is released goes out as the second alone.
+  release:
+    needs: gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # Else the token sits in .git/config, where scripts/package could read it.
+          persist-credentials: false
+{%- if gate == 'python' %}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+{%- endif %}
+      - name: Due
+        id: due
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+        run: |
+          status=0
+          scripts/release due || status=$?
+          case $status in
+            0) echo due=true >> "$GITHUB_OUTPUT" ;;
+            1) echo due=false >> "$GITHUB_OUTPUT" ;;
+            *) echo "scripts/release due failed (exit status $status)" >&2; exit 1 ;;
+          esac
+      - name: Package
+        if: steps.due.outputs.due == 'true' && hashFiles('scripts/package') != ''
+        run: scripts/package
+      - name: Publish
+        if: steps.due.outputs.due == 'true'
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+        run: scripts/release publish
+{%- endif %}

@@ -76,7 +76,8 @@ A merge into `main` releases the version as GitHub release `v<version>`, with wh
 `dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by Jenkins's Release stage).
 {%- else -%}
 A merge into `main` releases the version as GitHub release `v<version>`, with whatever `scripts/package` leaves in
-`dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by `.github/workflows/release.yml`).
+`dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by the Gate workflow's release
+job once the gate passes on `main`).
 {%- endif %}
 The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one
 (`scripts/release`'s header). So a change reaches users only if it raises the version.
@@ -92,7 +93,7 @@ The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.j
 {%- if gate == 'python' %}
 - Bump with `uv version --bump <level>`, never by editing `pyproject.toml`: it also updates `uv.lock`.
 {%- else %}
-- Bump with the tool `scripts/release`'s header names beside the version's file, which also updates its lockfile.
+- Bump with the tool `scripts/release`'s header names beside the file that holds the version.
 {%- endif %}
 - Don't create tags or releases by hand; CI does that after the merge.
 {%- endif %}

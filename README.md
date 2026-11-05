@@ -89,8 +89,9 @@ pull request overtaken by another that raised to the same version is held. The v
 `pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one. `scripts/release`'s header is the rule:
 which file, which paths are exempt, and how versions compare.
 
-On GitHub Actions, `.github/workflows/release.yml` releases on each push to `main` with the workflow's own token, so it
-needs no secret; a merge auto-merge makes with `AUTOMERGE_TOKEN` triggers it. On Jenkins, the job needs:
+On GitHub Actions, the Gate workflow's `release` job releases on each push to `main` that passes the gate, with the
+workflow's own token, so it needs no secret; a merge auto-merge makes with `AUTOMERGE_TOKEN` triggers it. On Jenkins,
+the job needs:
 
 - a **string credential** named by `jenkins_release_credential` (default `GitHub-Agents`), holding a GitHub token
   that may create releases on the repo (Contents: read and write). It is bound on the same agent that builds the

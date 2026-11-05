@@ -22,6 +22,7 @@ _tasks:
       - "--tracker={{ tracker }}"
       - "--ticket-sync={{ ticket_sync }}"
       - "--review-gate={{ review_gate }}"
+      - "--gate={{ gate }}"
       - "--python-package={{ python_package if gate == 'python' else '' }}"
       - "--automerge={{ automerge }}"
 
