@@ -2,7 +2,8 @@
 # GATE: ERROR or when the gate could not judge. Its job, gate, is the check the main
 # ruleset requires and auto-merge waits for. ready_for_review and unlabeled rerun it so
 # that a pull request released from a hold (docs/agents/README.md) gets a fresh run to
-# merge on.
+# merge on.{% if release %} With releases, it also checks the version raise and runs the
+# repo's scripts/package (steps Version and Package).{% endif %}
 name: Gate
 
 on:
@@ -21,6 +22,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+{%- if gate == 'python' %}
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       # The gate lints the workflows it finds with actionlint, which the runner lacks.
       - name: Install actionlint
@@ -33,12 +35,37 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$tarball" -C "$RUNNER_TEMP/bin" actionlint
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+{%- endif %}
       - name: Gate
         env:
           BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
         run: |
           base=$(git merge-base HEAD "$BASE")
           scripts/gate "$base"
+{%- if release %}
+      # A pull request must raise the release version over its base branch's, unless it
+      # changes only exempt paths (scripts/release's header).
+      - name: Version
+        env:
+          TARGET: {% raw %}${{ github.base_ref }}{% endraw %}
+        run: scripts/release raised "$TARGET"
+      # The repo's own scripts/package, on a change that touches a released path, so one
+      # that breaks the build fails before it is merged and a change to docs alone builds
+      # nothing. The Release workflow runs it itself on main when it releases.
+      - name: Package
+        if: hashFiles('scripts/package') != ''
+        env:
+          BASE: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+        run: |
+          base=$(git merge-base HEAD "$BASE")
+          status=0
+          scripts/release changed "$base" || status=$?
+          case $status in
+            0) scripts/package ;;
+            1) echo 'Only exempt paths changed: nothing to package.' ;;
+            *) echo "scripts/release changed failed (exit status $status)" >&2; exit 1 ;;
+          esac
+{%- endif %}
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi

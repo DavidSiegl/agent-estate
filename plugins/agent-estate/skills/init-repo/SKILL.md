@@ -25,11 +25,11 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
    | `tracker` | `scratch` (files under `.scratch/`) or `github` (GitHub Issues) | `scratch` |
    | `ticket_sync` | mirror `.scratch/` tickets to GitHub issues: **publishes every open ticket** | ask; never assume yes |
    | `review_gate` | refuse Claude's pushes without a passing cross-review | yes |
-   | `python_gate` / `python_package` | octoflow-ai's quality gate, for a uv-managed Python project | yes for such a project |
+   | `gate` / `python_package` | the quality gate: `python` (octoflow-ai's, for a uv-managed Python project, measuring `python_package`), `own` (a starter `scripts/gate` the repo fills in, any language) or `none` | `python` for such a project, else `own` |
    | `ci` | where the gate runs on pull requests: `none`, `jenkins`, `github-actions` | ask; Jenkins needs a job the user sets up |
    | `jenkins_agent_label` / `jenkins_status_login` | the Jenkins agents allowed to build, and the App login whose status counts | `untrusted`, `davidsiegl-jenkins[bot]` |
    | `automerge` | merge pull requests into main once CI passes, with no human | ask; it changes who merges |
-   | `release` / `jenkins_release_credential` | Jenkins releases every merge into main that raises the version (`scripts/release`); the credential holds a token that may create releases | ask; `GitHub-Agents` |
+   | `release` / `jenkins_release_credential` | CI releases every merge into main that raises the version (`scripts/release`); on Jenkins, the credential holds a token that may create releases | ask; `GitHub-Agents` |
 
    `ticket_sync` and the GitHub tracker's labels write to GitHub: say so before running.
 
@@ -38,7 +38,7 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
 ```bash
 uvx copier copy --trust --defaults \
   -d repo=OWNER/NAME -d tracker=scratch -d ticket_sync=false \
-  -d review_gate=true -d python_gate=true -d python_package=PKG \
+  -d review_gate=true -d gate=python -d python_package=PKG \
   gh:DavidSiegl/agent-estate .
 ```
 

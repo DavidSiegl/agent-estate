@@ -24,14 +24,25 @@
   both check before either merges both pass, and the second merge ships unreleased. Closed by strict status checks on
   the `ci-cd` ruleset (`init/github-rules.py`), with auto-merge updating a branch that is behind.
 
-- **The release token sits on the agent that runs agents' code.** Review 01, F1: "The Release stage binds a
+- **The release token sits on the Jenkins agent that runs agents' code.** Review 01, F1: "The Release stage binds a
   Contents: read and write token (`jenkins_release_credential`) in the job that builds agents' pull requests on the
   `untrusted` agent." A pull request can bind it in its own Jenkinsfile, or plant a `gh` that the next Release on
   `main` runs. Packaging, though run outside `withCredentials` (F15), can also reach it, as review 01's F16 found: as
   the same user in the same workspace, scripts/package and its build dependencies can leave a process that reads
   `scripts/release publish`'s `/proc/<pid>/environ`, or rewrite `scripts/release` or `.git/config` before publish
   runs them. Harmless only while the token is one the agents already hold, which the README requires. Closed by
-  releasing from a job on a trusted agent that builds `main` only, with a token agents never hold.
+  releasing from a job on a trusted agent that builds `main` only, with a token agents never hold. GitHub Actions'
+  `release.yml` already runs so: on `main` only, on a fresh runner, with the workflow's own token.
+
+## Decided against
+
+- **A gate for any language as commands in Copier answers** (say `test_command`, `lint_command`), rendered into the
+  Jenkinsfile and `gate.yml`. Rejected for the generic template (2026-11-05): the logic would live in answer strings,
+  untested and unlintable, duplicated across both CI files. A repo-owned `scripts/gate` (`gate: own`) holds it instead,
+  tested and run alike locally and in CI.
+- **Per-language presets** (`gate: rust`, `gate: node`, …). Rejected with the above: no fixed set covers "any project",
+  and each preset is upkeep for a language few repos use. Only octoflow-ai's Python gate is the template's, because it
+  is shared estate tooling, not a preset.
 
 ### ticket-sync
 

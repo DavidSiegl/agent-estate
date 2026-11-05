@@ -28,13 +28,20 @@ On: Claude's pushes of a commit with no `Verdict: pass` record under `.scratch/r
 through the `cross-review` skill before pushing. A fresh clone has the gate off until `.scratch/reviews/` is created
 at its root.
 {%- endif %}
-{%- if python_gate %}
+{%- if gate == 'python' %}
 
 ## Quality gate
 
 `scripts/gate [BASE]` runs the tests with coverage and octoflow-ai's `gate.py` over the change since BASE (default
 `main`), writing `quality.md`. Run it before handing a branch to review; fix each issue it lists on changed lines, and
-fix or justify each finding to weigh.
+fix or justify each finding to weigh. A change to docs alone (`docs/` and top-level Markdown) runs the gate's linters
+and no tests.
+{%- elif gate == 'own' %}
+
+## Quality gate
+
+`scripts/gate [BASE]` is this repo's own quality gate over the change since BASE (default `main`); its header says
+what it checks and what CI expects of it. Run it before handing a branch to review, and fix what it reports.
 {%- endif %}
 {%- if ci != 'none' %}
 
@@ -43,12 +50,10 @@ fix or justify each finding to weigh.
 {% if ci == 'jenkins' -%}
 Jenkins builds every pull request and `main` with the `Jenkinsfile`, running `scripts/gate` over a pull request since
 its merge base and over `main` since its last successful build, and reports `continuous-integration/jenkins/pr-head`
-on each pull request through its GitHub App. A change to docs alone (`docs/` and top-level Markdown) runs the gate's
-linters and no tests.
+on each pull request through its GitHub App.
 {%- else -%}
 The Gate workflow (`.github/workflows/gate.yml`) runs `scripts/gate` from the merge base on every pull request into
-`main`, as the check `gate`. A change to docs alone (`docs/` and top-level Markdown) runs the gate's linters and no
-tests.
+`main`, as the check `gate`.
 {%- endif %}
 {%- if automerge %}
 
@@ -66,16 +71,28 @@ Pull requests are merged by a human.
 
 ## Releases
 
-A merge into `main` releases the version in `pyproject.toml` as GitHub release `v<version>`, with whatever
-`scripts/package` leaves in `dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by
-Jenkins's Release stage). So a change reaches users only if it raises the version.
+{% if ci == 'jenkins' -%}
+A merge into `main` releases the version as GitHub release `v<version>`, with whatever `scripts/package` leaves in
+`dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by Jenkins's Release stage).
+{%- else -%}
+A merge into `main` releases the version as GitHub release `v<version>`, with whatever `scripts/package` leaves in
+`dist/release/`, if that release doesn't exist yet (`scripts/release publish`, run by `.github/workflows/release.yml`).
+{%- endif %}
+The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one
+(`scripts/release`'s header). So a change reaches users only if it raises the version.
 
 - Every change to a released path raises the version in the same pull request, and every spec or ticket for one lists
-  the bump and its level as an acceptance criterion: `uv version --bump patch` for a fix, `minor` for a new feature or
-  flag, `major` for a change that breaks what users rely on. Jenkins's Version stage fails a pull request that
-  doesn't{% if automerge %}, and auto-merge checks it again against `main` as it is when merging{% endif %}.
+  the bump and its level as an acceptance criterion: `patch` for a fix, `minor` for a new feature or flag, `major` for
+  a change that breaks what users rely on. {% if ci == 'jenkins' %}Jenkins's Version stage{% else %}The Gate workflow{% endif %} fails a pull request that doesn't.
+{%- if automerge %}
+  Auto-merge checks it again against `main` as it is when merging.
+{%- endif %}
 - Changes only to exempt paths (docs, tests, CI, repository tooling: `scripts/release`'s header lists them, plus the
   repo's own `.release-exempt`) don't bump the version, and build no package.
+{%- if gate == 'python' %}
 - Bump with `uv version --bump <level>`, never by editing `pyproject.toml`: it also updates `uv.lock`.
-- Don't create tags or releases by hand; Jenkins does that after the merge.
+{%- else %}
+- Bump with the tool `scripts/release`'s header names beside the version's file, which also updates its lockfile.
+{%- endif %}
+- Don't create tags or releases by hand; CI does that after the merge.
 {%- endif %}

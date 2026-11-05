@@ -78,9 +78,12 @@ class Release(unittest.TestCase):
         self.git("add", "--all")
         self.git("commit", "-qm", message)
 
-    def on_main(self, files):
-        """Commits ``files`` on main, pushes it, and cuts ``change`` afresh from it."""
+    def on_main(self, files, remove=()):
+        """Commits ``files``, and the removal of those paths in ``remove`` it has, on main, pushes
+        it, and cuts ``change`` afresh from it."""
         self.git("switch", "-q", "main")
+        for rel in remove:
+            self.git("rm", "-q", "--ignore-unmatch", rel)
         self.commit(files)
         self.git("push", "-q", "origin", "main")
         self.git("switch", "-q", "-C", "change")
@@ -175,11 +178,40 @@ class Release(unittest.TestCase):
                 r = self.run_release("raised", "main")
                 self.assertEqual((r.returncode, r.stderr), (0, ""))
 
+    def test_raised_reads_each_version_file_and_names_its_bump_tool(self):
+        sources = {
+            "Cargo.toml": ('[package]\nname = "p"\nversion = "{}"\n[dependencies]\nversion = "0"\n',
+                           "cargo set-version --bump"),
+            "package.json": ('{{\n  "name": "p",\n  "version": "{}",\n  "dependencies": {{}}\n}}\n',
+                             "npm version LEVEL --no-git-tag-version"),
+            "VERSION": ("{}\n", "an edit to VERSION"),
+        }
+        for name, (text, tool) in sources.items():
+            with self.subTest(file=name):
+                self.on_main({name: text.format("1.0.0")}, remove=["pyproject.toml", *sources])
+                self.commit({name: text.format("1.0.0"), "p/cli.py": name})
+                r = self.run_release("raised", "main")
+                self.assertEqual(r.returncode, 1, r.stderr)
+                self.assertIn(f"{name}'s version is 1.0.0, not greater than main's 1.0.0", r.stderr)
+                self.assertIn(tool, r.stderr)
+                self.commit({name: text.format("1.0.1")})
+                r = self.run_release("raised", "main")
+                self.assertEqual((r.returncode, r.stderr), (0, ""))
+
+    def test_raised_takes_a_cargo_workspace_version_and_the_first_file_holding_one(self):
+        workspace = '[workspace]\nmembers = ["a"]\n\n[ workspace.package ]\nversion = "{}"\n'
+        self.on_main({"Cargo.toml": workspace.format("1.0.0"),
+                      "pyproject.toml": '[project]\nname = "p"\ndynamic = ["version"]\n'})
+        self.commit({"Cargo.toml": workspace.format("1.0.0"), "p/cli.py": "2"})
+        r = self.run_release("raised", "main")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("Cargo.toml's version is 1.0.0", r.stderr)
+
     def test_raised_fails_with_2_on_a_pyproject_without_a_project_version(self):
         self.commit({"pyproject.toml": '[project]\nname = "p"\n'})
         r = self.run_release("raised", "main")
         self.assertEqual(r.returncode, 2)
-        self.assertIn("no version in pyproject.toml's [project] table", r.stderr)
+        self.assertIn("no release version at HEAD", r.stderr)
 
     def test_raised_fails_with_2_on_a_target_origin_lacks(self):
         self.commit({"p/cli.py": "2"})

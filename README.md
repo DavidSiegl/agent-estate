@@ -4,9 +4,11 @@ The agent setup I give my repos, kept in one place so it can be applied to a new
 them.
 
 - **`copier.yml`, `template/`, `init/`**: a [Copier](https://copier.readthedocs.io/) template for the per-repo part:
-  the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for uv
-  Python projects, octoflow-ai's quality gate as `scripts/gate` and, built by Jenkins, releases (`scripts/release`). `init/apply.py` does what isn't a template file:
-  `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its docstring lists every step.
+  the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for a
+  project in any language, a quality gate as `scripts/gate` (octoflow-ai's for a uv Python project, else the repo's
+  own), run by Jenkins or GitHub Actions, with optional auto-merge and releases (`scripts/release`). `init/apply.py`
+  does what isn't a template file: `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its
+  docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger,
   readme-sync, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
@@ -34,11 +36,16 @@ uvx copier update --trust              # pick up template changes
 uvx copier update --trust -d tracker=github   # change an answer
 ```
 
-The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits. `apply.py` reruns
+The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits, except a
+repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns
 and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, so its own text is never
 rewritten.
 
 ## CI and auto-merge
+
+`gate` picks the quality gate: `python`, octoflow-ai's, for a uv-managed Python project; `own`, a starter
+`scripts/gate` whose header is the contract CI relies on (exit 0, 1 or 2 on a change since BASE), for the repo to fill
+with its own checks in any language; or `none`, which also leaves out CI.
 
 With `ci` set, pull requests run `scripts/gate` in CI; with `automerge`, `.github/workflows/automerge.yml` merges one
 into `main` once CI passed on its head commit (the generated `docs/agents/README.md` says what holds one back). It
@@ -70,25 +77,29 @@ reasons):
   requests: read and Commit statuses: read and write. Its login is the `jenkins_status_login` answer;
   auto-merge trusts statuses from that login only. Keep the credential in the job's folder store, not the global one;
 - an **agent labelled `jenkins_agent_label`** (default `untrusted`) that holds nothing an agent should not have,
-  restricted per node with the Job Restrictions plugin, with `uv`, `git`, `curl`, `shellcheck` and `actionlint` on
-  it, and also `gh` when `release` is on.
+  restricted per node with the Job Restrictions plugin, with `git` and what `scripts/gate` needs on it (for
+  `gate: python`: `uv`, `curl`, `shellcheck` and `actionlint`), and also `gh` when `release` is on.
 
 ### Releases
 
-With `release` (Jenkins only), a merge into `main` whose `pyproject.toml` version has no GitHub release yet is
-released as `v<version>` by `scripts/release publish`, and the Version stage fails a pull request into `main` that
-changes a released path without raising the version; auto-merge checks that again right before merging, so a pull
-request overtaken by another that raised to the same version is held. `scripts/release`'s header is the rule: which
-paths are exempt, and how versions compare. The job then needs:
+With `release`, a merge into `main` whose version has no GitHub release yet is released as `v<version>` by
+`scripts/release publish`, and CI's Version stage (Jenkins) or step (GitHub Actions) fails a pull request into `main`
+that changes a released path without raising the version; auto-merge checks that again right before merging, so a
+pull request overtaken by another that raised to the same version is held. The version is read from the first of
+`pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one. `scripts/release`'s header is the rule:
+which file, which paths are exempt, and how versions compare.
+
+On GitHub Actions, `.github/workflows/release.yml` releases on each push to `main` with the workflow's own token, so it
+needs no secret; a merge auto-merge makes with `AUTOMERGE_TOKEN` triggers it. On Jenkins, the job needs:
 
 - a **string credential** named by `jenkins_release_credential` (default `GitHub-Agents`), holding a GitHub token
   that may create releases on the repo (Contents: read and write). It is bound on the same agent that builds the
   agents' pull requests, whose code can read it (`TODO.md`), so it must be a token the agents already hold, as
   `GitHub-Agents` is; never one they should not have;
 - optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and leaves it as
-  plain files directly in `dist/release/`. The Package stage runs it on a pull request that touches a released path,
-  and the Release stage again on `main` when the version is due, without the credential, right before it publishes;
-  without it the release has only GitHub's source archives;
+  plain files directly in `dist/release/`, on either CI. The Package stage or step runs it on a pull request that
+  touches a released path, and the release again on `main` when the version is due, without the token, right before
+  it publishes; without it the release has only GitHub's source archives;
 - optionally a repo-owned **`.release-exempt`**: more paths whose changes reach no user, one git glob pathspec per
   line, beside the built-in docs, tests and CI.
 
