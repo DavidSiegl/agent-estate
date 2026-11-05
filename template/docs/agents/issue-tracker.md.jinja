@@ -9,9 +9,9 @@ follow it rather than this file for those.
 ## Mirrored to GitHub
 
 `git config agent.ticketSync` is `{{ repo }}` in this checkout (set when the template is applied), so the
-`ticket-sync` skill keeps every open ticket in step with an issue on {{ repo }}, both ways:
-a `Status:` becomes the issue's triage label, and comments from collaborators come back under `## Comments`.
-Consequences worth knowing before writing a ticket:
+`ticket-sync` skill keeps every open ticket in step with an issue on {{ repo }}, both ways: a `Status:`
+becomes the issue's triage label, and comments from collaborators come back under `## Comments`. Consequences worth
+knowing before writing a ticket:
 
 - **An open ticket is published** to everyone who can read {{ repo }}; write nothing in a ticket you would
   not post as an issue.
@@ -27,8 +27,8 @@ Tickets are not mirrored anywhere: they exist only in this checkout. A decision 
 {% endif -%}
 ## Pull requests as a triage surface
 
-**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests, and triage
-them as issues.)_
+**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage`, a
+command only the user runs, reads this flag.)_
 {%- else -%}
 # Issue tracker: GitHub
 
@@ -53,8 +53,8 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ## Pull requests as a triage surface
 
-**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests, and triage
-them as issues.)_
+**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage`, a
+command only the user runs, reads this flag.)_
 
 When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
 
@@ -76,7 +76,7 @@ Read it as in **Read an issue** above.
 
 ## Wayfinding operations
 
-The **map** is a single issue with **child** issues as tickets.
+Used by `/wayfinder`, a command only the user runs. The **map** is a single issue with **child** issues as tickets.
 
 - **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body.
   `gh issue create --label wayfinder:map`.
