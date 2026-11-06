@@ -213,6 +213,17 @@ class Release(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("no release version at HEAD", r.stderr)
 
+    def test_raised_judges_against_origins_target_though_a_tag_shadows_its_short_name(self):
+        # A tag origin/main on a commit at 0.5.0 would win over refs/remotes/origin/main
+        # (0.9.0) if raised read the short name, and let 0.8.0 through as a raise.
+        self.commit({"pyproject.toml": pyproject("0.5.0")})
+        self.git("tag", "origin/main")
+        self.git("reset", "-q", "--hard", "main")
+        self.commit({"pyproject.toml": pyproject("0.8.0")})
+        r = self.run_release("raised", "main")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("version is 0.8.0, not greater than 0.9.0 in main's pyproject.toml", r.stderr)
+
     def test_raised_fails_with_2_on_a_target_origin_lacks(self):
         self.commit({"p/cli.py": "2"})
         r = self.run_release("raised", "nope")

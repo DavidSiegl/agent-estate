@@ -70,3 +70,5 @@ inline markers (or `.rej` files) to resolve before committing.
 - With `ci` set: the CI side is the user's (the README's "Jenkins" section lists it). Once CI reports on a pull
   request, `init/github-rules.py` sets the `ci-cd` ruleset; it needs Administration: write, which the agents' token
   may lack, in which case give the user the command. Not before: until CI reports, the ruleset blocks every merge.
+- With `automerge` set, when the change adds `automerge.yml`: tell the user its pull request is theirs to merge.
+  GitHub runs the workflow from `main`'s copy, so nothing merges this one, and agents never merge one themselves.

@@ -58,6 +58,10 @@ token). Until it is set, nothing merges:
 gh secret set AUTOMERGE_TOKEN -R OWNER/NAME
 ```
 
+GitHub runs the workflow from `main`'s copy (its header), so it merges nothing before `automerge.yml` is on `main`:
+the pull request that first adds it is merged by hand, and one whose CI passed before then, or before the secret was
+set, waits for a new CI result.
+
 Once CI reports on pull requests, protect `main` with the `ci-cd` ruleset (needs a gh token with Administration:
 write on the repo; the docstring says what it sets):
 
