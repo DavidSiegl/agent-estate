@@ -195,13 +195,8 @@ pipeline {
             // shown as the build's test results and never judged: neither the build's result nor
             // a GitHub check (skipPublishingChecks) comes from them, so a failing test leaves the
             // result to the gate. None, as on a change to docs alone, is no error.
-{%- if gate == 'python' %}
             junit allowEmptyResults: true, skipMarkingBuildUnstable: true, skipPublishingChecks: true,
-                  testResults: 'test-results.xml'
-{%- else %}
-            junit allowEmptyResults: true, skipMarkingBuildUnstable: true, skipPublishingChecks: true,
-                  testResults: 'test-results*.xml'
-{%- endif %}
+                  testResults: '{{ "test-results.xml" if gate == "python" else "test-results*.xml" }}'
         }
 {%- if jenkins_notify_email %}
         // Mail on every build that did not pass (failed, unstable or aborted), and on the first

@@ -44,6 +44,10 @@
   Jenkinsfile's `post`); `gate.yml` ignores them, so on that CI a failing test is visible only in quality.md
   and the log. Closed by a step in `gate.yml` that turns them into a check run or the job summary, without a
   third-party action the token would have to trust.
+- **The own-gate starter tells every repo what Jenkins does with its files.** Review 05, F4: the starter's header
+  "still says 'which Jenkins publishes' whatever `ci` is. The own starter is not a `.jinja` file, so it renders
+  unchanged under `ci: github-actions` or `ci: none`." Closes with the starter rendered as `.jinja`, its CI sentences
+  under `ci`; only new renders get it, since `copier update` never rewrites the starter.
 
 ### ticket-sync
 
