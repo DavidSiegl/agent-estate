@@ -17,9 +17,16 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timeout(time: 60, unit: 'MINUTES')
+{%- if release or jenkins_notify_email %}
+        // One build per branch at a time, so a build's previous one has always finished.
 {%- if release %}
-        // One build per branch at a time, so two builds of main cannot both find a
-        // version unreleased and race to release it (stage Release).
+        // Two builds of main then cannot both find a version unreleased and race to release
+        // it (stage Release).
+{%- endif %}
+{%- if jenkins_notify_email %}
+        // The mail on a pass after a failure then compares each build with the one before
+        // it (post).
+{%- endif %}
         disableConcurrentBuilds()
 {%- endif %}
     }
@@ -184,6 +191,41 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'quality.md', allowEmptyArchive: true
+            // The JUnit reports scripts/gate left (its header), shown as the build's test results
+            // and never judged: a failing test in them leaves the result to the gate. None, as on
+            // a change to docs alone, is no error.
+            junit allowEmptyResults: true, skipMarkingBuildUnstable: true, testResults: 'test-results*.xml'
+        }
+{%- if jenkins_notify_email %}
+        // Mail on every build that did not pass (failed, unstable or aborted), and on the first
+        // passing build after one, never on a build that merely passed again.
+        unsuccessful {
+            emailext(
+                to: '{{ jenkins_notify_email }}',
+                subject: "${currentBuild.currentResult}  ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Did not pass - see the attached log.
+
+Gate report, if the build reached the Gate stage: ${env.BUILD_URL}artifact/quality.md
+${env.BUILD_URL}console""",
+                attachLog: true,
+                compressLog: true
+            )
+        }
+        success {
+            script {
+                def previous = currentBuild.previousCompletedBuild
+                if (previous && previous.result != 'SUCCESS') {
+                    emailext(
+                        to: '{{ jenkins_notify_email }}',
+                        subject: "RECOVERED  ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: "${env.BUILD_URL}"
+                    )
+                }
+            }
+        }
+{%- endif %}
+        // Last, whatever the steps above did, so no build leaves the workspace to the next.
+        cleanup {
             cleanWs()
         }
     }

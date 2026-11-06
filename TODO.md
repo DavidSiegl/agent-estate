@@ -40,6 +40,11 @@
   subcommands that act instead of answering (say `scripts/release package-if-changed BASE`), leaving CI one call
   whose failure is the only outcome to handle.
 
+- **GitHub Actions shows no test results.** Jenkins publishes the `test-results*.xml` reports `scripts/gate` leaves
+  (the starter gate's header); `gate.yml` ignores them, so on that CI a failing test is visible only in quality.md
+  and the log. Closed by a step in `gate.yml` that turns them into a check run or the job summary, without a
+  third-party action the token would have to trust.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.
