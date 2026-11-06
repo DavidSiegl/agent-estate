@@ -54,6 +54,11 @@
   `raised` says 'main'." Accurate, but it reads inconsistently in auto-merge's comments and Jenkins logs. Closes when
   those helpers' messages name what the caller calls the commit, if that costs less than the parameter it seems to
   need.
+- **A plugin change merged without a version raise still never reaches installs.**
+  `plugins/agent-estate/hooks/plugin-version.py` checks only a Claude `gh pr create`; a pull request opened in the
+  browser, or a push straight to `main`, is not checked. Closed by a CI check on this repo's own pull requests:
+  `scripts/release`'s Version step already refuses a released path changed without a raise, but reads the version
+  from `pyproject.toml` and the like, not from `plugin.json`, and this repo runs none of its own template's CI.
 
 ### ticket-sync
 
@@ -72,6 +77,9 @@ Paths relative to `plugins/agent-estate/hooks/`.
 
 ## Decided against
 
+- **Dropping `version` from `plugin.json`** so installs follow every commit instead of a raised version. Rejected
+  (2026-11-06): a raise makes each release a deliberate step, and `plugins/agent-estate/hooks/plugin-version.py`
+  holds sessions to it.
 - **A gate for any language as commands in Copier answers** (say `test_command`, `lint_command`), rendered into the
   Jenkinsfile and `gate.yml`. Rejected for the generic template (2026-11-05): the logic would live in answer strings,
   untested and unlintable, duplicated across both CI files. A repo-owned `scripts/gate` (`gate: own`) holds it instead,
