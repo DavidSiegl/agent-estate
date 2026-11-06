@@ -15,7 +15,9 @@ them.
   template, the `chore` agent in `agents/`, which takes fully specified work (run the tests, apply a given edit) on
   Sonnet instead of the session's model, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
   skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
-  without the README (`hooks/readme-sync.py`'s docstring has the rule), and the context handover.
+  without the README (`hooks/readme-sync.py`'s docstring has the rule), the version check that refuses one changing
+  a plugin without raising the `version` in its `.claude-plugin/plugin.json`, without which installs never load the
+  change (`hooks/plugin-version.py`'s docstring has the rule), and the context handover.
   `.claude-plugin/marketplace.json` makes this repo its marketplace.
 
 ## Applying it to a repo
