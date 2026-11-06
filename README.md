@@ -79,6 +79,9 @@ reasons):
 - an **agent labelled `jenkins_agent_label`** (default `untrusted`) that holds nothing an agent should not have,
   restricted per node with the Job Restrictions plugin, with `git` and what `scripts/gate` needs on it (for
   `gate: python`: `uv`, `curl`, `shellcheck` and `actionlint`), and also `gh` when `release` is on.
+- the **JUnit** plugin, which publishes the `test-results*.xml` reports `scripts/gate` leaves (`gate: python` leaves
+  pytest's), and with `jenkins_notify_email` set, the **Email Extension** plugin and a working mail server in Jenkins's
+  configuration: the job then mails that address when a build fails and when one passes after a failure.
 
 ### Releases
 

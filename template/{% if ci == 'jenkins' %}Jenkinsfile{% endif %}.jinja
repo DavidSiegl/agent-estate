@@ -184,7 +184,34 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'quality.md', allowEmptyArchive: true
+            // The JUnit reports scripts/gate left (its header), as the build's test results; none,
+            // as on a change to docs alone, is no error. A failing test in them marks the build
+            // unstable, which a gate that failed on it already outranks as a failure.
+            junit allowEmptyResults: true, testResults: 'test-results*.xml'
             cleanWs()
         }
+{%- if jenkins_notify_email %}
+        // Mail on a failure and on the first passing build after one, never on a build that
+        // merely passed again.
+        failure {
+            emailext(
+                to: '{{ jenkins_notify_email }}',
+                subject: "FAILED  ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Failed - see the attached log.
+
+Gate report, if the build reached the Gate stage: ${env.BUILD_URL}artifact/quality.md
+${env.BUILD_URL}console""",
+                attachLog: true,
+                compressLog: true
+            )
+        }
+        fixed {
+            emailext(
+                to: '{{ jenkins_notify_email }}',
+                subject: "RECOVERED  ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "${env.BUILD_URL}"
+            )
+        }
+{%- endif %}
     }
 }
