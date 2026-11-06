@@ -75,7 +75,7 @@ pipeline {
                                 fi
                             fi
                             if [ -n "$released" ]; then
-                                git rev-parse "$released^{commit}"
+                                git rev-parse "refs/tags/$released^{commit}"
                             else
                                 empty=$(git hash-object -w -t tree /dev/null)
                                 git -c user.name=gate -c user.email=gate@localhost -c commit.gpgSign=false \\

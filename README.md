@@ -52,12 +52,14 @@ into `main` once CI passed on its head commit (the generated `docs/agents/README
 checks who reported the result itself, so it is safe before any ruleset exists. It merges with a repository secret,
 `AUTOMERGE_TOKEN`: a fine-grained personal access token of the owner, limited to the repo, with Contents, Pull
 requests and Workflows read and write (the header of the generated `automerge.yml` says why not the workflow's own
-token). Until it is set, nothing merges, and neither does the pull request that first adds `automerge.yml`: GitHub
-runs the workflow from `main`'s copy (its header), so that one is merged by hand.
+token). Until it is set, nothing merges:
 
 ```bash
 gh secret set AUTOMERGE_TOKEN -R OWNER/NAME
 ```
+
+GitHub runs the workflow from `main`'s copy (its header), so it merges nothing before `automerge.yml` is on `main`:
+the pull request that first adds it is merged by hand, and one whose CI passed before then waits for a new CI result.
 
 Once CI reports on pull requests, protect `main` with the `ci-cd` ruleset (needs a gh token with Administration:
 write on the repo; the docstring says what it sets):
