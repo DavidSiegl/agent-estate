@@ -4,7 +4,8 @@
 # writes quality.md at the repo root{% if ci == 'jenkins' %}, and pytest's JUnit report there, test-results.xml,
 # which the Jenkinsfile shows as the build's test results{% endif %}.
 #
-#   scripts/gate [BASE]     BASE is any git revision; default main.
+#   scripts/gate [BASE]     BASE is any git revision; default the branch main, read as
+#                           refs/heads/main so a tag main cannot stand in (gitrevisions(7)).
 #
 # A change to docs alone (docs/ and Markdown at the top level, the owner's rule of
 # 2026-11-05) runs no tests: gate.py then judges its linters' findings, such as
@@ -38,7 +39,7 @@ trap 'exit 2' ERR
 gate_commit=c0f6f32b5588ad19a781781406d8342849a9ca45 # octoflow-ai v0.57.5
 gate_sha256=2165e8f2217f473974a21f1c5538aa6887d1df56fbabfa11319226dfbfa180a3
 
-base=${1:-main}
+base=${1:-refs/heads/main}
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/octoflow-gate/$gate_commit"
 
 top=$(git rev-parse --show-toplevel)
