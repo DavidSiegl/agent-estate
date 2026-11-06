@@ -79,3 +79,9 @@ Paths relative to `plugins/agent-estate/hooks/`.
 - **Per-language presets** (`gate: rust`, `gate: node`, …). Rejected with the above: no fixed set covers "any project",
   and each preset is upkeep for a language few repos use. Only octoflow-ai's Python gate is the template's, because it
   is shared estate tooling, not a preset.
+- **One helper for a Jenkins pull request's fetch and merge base**, shared by the Jenkinsfile's Change stage and
+  `scripts/release raised` (hyprmuse's review 31, F2). Rejected (2026-11-06): the two render on separate answers (a
+  Jenkinsfile with `release` off has no `scripts/release`, which with `ci: github-actions` has no Jenkinsfile), and
+  `scripts/release` is plain shell its tests run straight from `template/`, so the helper would be a new script in
+  every Jenkins repo to save two lines. Each place instead says the other reads the target alike. GitHub Actions takes
+  the base by SHA and has no copy.
