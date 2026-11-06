@@ -17,11 +17,11 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         timeout(time: 60, unit: 'MINUTES')
-{%- if release %}
-        // One build per branch at a time, so two builds of main cannot both find a
-        // version unreleased and race to release it (stage Release).
+        // One build per branch at a time, so a build's previous one has always finished:
+        // two builds of main cannot both find a version unreleased and race to release it
+        // (stage Release), and the mail on a pass after a failure compares each build with
+        // the one before it (post).
         disableConcurrentBuilds()
-{%- endif %}
     }
 {%- if gate == 'python' %}
 
