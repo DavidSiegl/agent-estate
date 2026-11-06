@@ -35,15 +35,15 @@ at its root.
 ## Quality gate
 
 `scripts/gate [BASE]` runs the tests with coverage and octoflow-ai's `gate.py` over the change since BASE (default
-`main`), writing `quality.md`. Run it before handing a branch to review; fix each issue it lists on changed lines, and
-fix or justify each finding to weigh. A change to docs alone (`docs/` and top-level Markdown) runs the gate's linters
-and no tests.
+the branch `main`), writing `quality.md`. Run it before handing a branch to review; fix each issue it lists on changed
+lines, and fix or justify each finding to weigh. A change to docs alone (`docs/` and top-level Markdown) runs the
+gate's linters and no tests.
 {%- elif gate == 'own' %}
 
 ## Quality gate
 
-`scripts/gate [BASE]` is this repo's own quality gate over the change since BASE (default `main`); its header says
-what it checks and what CI expects of it. Run it before handing a branch to review, and fix what it reports.
+`scripts/gate [BASE]` is this repo's own quality gate over the change since BASE (default the branch `main`); its
+header says what it checks and what CI expects of it. Run it before handing a branch to review, and fix what it reports.
 {%- endif %}
 {%- if ci != 'none' %}
 
