@@ -81,7 +81,8 @@ reasons):
   `gate: python`: `uv`, `curl`, `shellcheck` and `actionlint`), and also `gh` when `release` is on.
 - the **JUnit** plugin, which publishes the `test-results*.xml` reports `scripts/gate` leaves (`gate: python` leaves
   pytest's), and with `jenkins_notify_email` set, the **Email Extension** plugin and a working mail server in Jenkins's
-  configuration: the job then mails that address when a build fails and when one passes after a failure.
+  configuration: the job then mails that address when a build fails, is unstable or is aborted, and when one passes
+  after it.
 
 ### Releases
 

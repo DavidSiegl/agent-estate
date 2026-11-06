@@ -92,10 +92,14 @@ jenkins_status_login:
 
 jenkins_notify_email:
   type: str
-  help: Address Jenkins mails when a build fails and when one passes after a failure (empty for no mail)
+  help: Address Jenkins mails when a build does not pass and when one passes after it (empty for no mail)
   default: ""
   when: "{{ ci == 'jenkins' }}"
-  validator: "{% if ci == 'jenkins' and jenkins_notify_email and '@' not in jenkins_notify_email %}Give an email address, or leave it empty{% endif %}"
+  # The address is rendered into a single-quoted Groovy string, which a ' or \ would break.
+  validator: >-
+    {% if ci == 'jenkins' and jenkins_notify_email and ('@' not in jenkins_notify_email
+    or "'" in jenkins_notify_email or '\\' in jenkins_notify_email) %}Give an email address without ' or \,
+    or leave it empty{% endif %}
 
 automerge:
   type: bool
