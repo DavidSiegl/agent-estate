@@ -92,7 +92,9 @@ Done when every `unclear` entry has one of those three outcomes.
 
 Each `ticket` entry, and each `needs-info` one from step 5, becomes one ticket.
 
-**Where** — GitHub: `gh issue create`, labelled with its triage status.
+**Where** — GitHub: `gh issue create`, labelled with its triage status; a
+repo set up without the GitHub tracker lacks those labels, so create a missing
+one first (`gh label create`).
 `.scratch/`: a feature directory per `TODO.md` subsection (`### ticket-sync` →
 `.scratch/ticket-sync/`), and `.scratch/todo/` for entries under no
 subsection; numbers continue after the highest file already in that
