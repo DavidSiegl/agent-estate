@@ -27,9 +27,9 @@
 # gate.py is downloaded once per pinned commit into $XDG_CACHE_HOME/octoflow-gate/, and
 # each run executes a copy of it checked against the pinned SHA-256 after the tests, so a
 # test cannot leave a changed gate.py for later runs. Within a run the tests, running as
-# the same user, can still reach gate.py's interpreter and tools: agent-estate's TODO.md,
-# "The judged code can still tamper with the judge". To move to a newer gate, change both
-# pins.
+# the same user, can still reach gate.py's interpreter and tools, as agent-estate's TODO.md
+# accepts under "Keeping the judged code out of the judge's reach". To move to a newer
+# gate, change both pins.
 set -euo pipefail
 # git must read BASE's objects as they are, not as a refs/replace/ entry the tests wrote.
 export GIT_NO_REPLACE_OBJECTS=1
