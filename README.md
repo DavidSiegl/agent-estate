@@ -10,7 +10,7 @@ them.
   does what isn't a template file: `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its
   docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
-  session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger,
+  session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger and todo-tickets,
   readme-sync, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
   template, the `chore` agent in `agents/`, which takes fully specified work (run the tests, apply a given edit) on
   Sonnet instead of the session's model, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
