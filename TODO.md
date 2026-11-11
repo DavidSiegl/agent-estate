@@ -2,39 +2,12 @@
 
 ## Open issues
 
-- **Copier runs `init/apply.py` three times per update.** (#23) It also runs it in the scratch renders of the old and new
-  template versions. `apply.py` returns early outside a git work tree, which is also why `copier copy` into a
-  directory that isn't a git repo silently skips every step.
-- **Two auto-merge runs at the same moment can merge two raises to the same version.** (#22) With `release`,
-  `automerge.yml` re-checks the raise against `main` right before merging (hyprmuse's review 26, F1), but two runs that
-  both check before either merges both pass, and the second merge ships unreleased. Closed by strict status checks on
-  the `ci-cd` ruleset (`init/github-rules.py`), with auto-merge updating a branch that is behind.
-
-- **The CI files each repeat `scripts/release`'s exit-status dispatch.** (#18) Review 02, F7: "the exit-status dispatch on
-  `scripts/release changed` / `due` is now copied in three CI files" (the Jenkinsfile's Package and Release stages,
-  `gate.yml`'s Package step and release job), so a change to that exit contract must be repeated in each. Closed by
-  subcommands that act instead of answering (say `scripts/release package-if-changed BASE`), leaving CI one call
-  whose failure is the only outcome to handle.
-
-- **GitHub Actions shows no test results.** (#19) Jenkins publishes the JUnit reports `scripts/gate` leaves (the
-  Jenkinsfile's `post`); `gate.yml` ignores them, so on that CI a failing test is visible only in quality.md
-  and the log. Closed by a step in `gate.yml` that turns them into a check run or the job summary, without a
-  third-party action the token would have to trust.
-- **The own-gate starter tells every repo what Jenkins does with its files.** (#20) Review 05, F4: the starter's header
-  "still says 'which Jenkins publishes' whatever `ci` is. The own starter is not a `.jinja` file, so it renders
-  unchanged under `ci: github-actions` or `ci: none`." Closes with the starter rendered as `.jinja`, its CI sentences
-  under `ci`; only new renders get it, since `copier update` never rewrites the starter.
 - **`scripts/release raised` names the target two ways in its failures.** Review 06, F6: "`exempt_at` and
   `version_at` print their argument, so the messages now read 'no commit refs/remotes/origin/main', 'cannot read
   .release-exempt at refs/remotes/origin/main' and 'no release version at refs/remotes/origin/main: …'. The rest of
   `raised` says 'main'." Accurate, but it reads inconsistently in auto-merge's comments and Jenkins logs. Closes when
   those helpers' messages name what the caller calls the commit, if that costs less than the parameter it seems to
   need.
-- **A plugin change merged without a version raise still never reaches installs.** (#24)
-  `plugins/agent-estate/hooks/plugin-version.py` checks only a Claude `gh pr create`; a pull request opened in the
-  browser, or a push straight to `main`, is not checked. Closed by a CI check on this repo's own pull requests:
-  `scripts/release`'s Version step already refuses a released path changed without a raise, but reads the version
-  from `pyproject.toml` and the like, not from `plugin.json`, and this repo runs none of its own template's CI.
 
 ### ticket-sync
 
@@ -47,9 +20,6 @@ Paths relative to `plugins/agent-estate/hooks/`.
   triggers with a label (labels need triage rights), tying issue to ticket in the local record only, and never pulling
   the author's later edits.
 - **Only the first 100 comments of an issue are seen.** `gh issue list --json comments` returns at most 100 per issue.
-- **A linked worktree syncs into its own `.scratch/`.** (#21) `agent.ticketSync` lives in the shared git config, so a session
-  in a worktree restores every open ticket into the worktree's fresh `.scratch/`. Closed by resolving the main checkout
-  (`git rev-parse --git-common-dir`) in `opted_in()`.
 
 ## Decided against
 

@@ -5,9 +5,10 @@ description: Turn a repo's TODO.md into tickets — sorting each open entry into
 
 # TODO.md to tickets
 
-`TODO.md` is the durable record of what is open (`todo-ledger`); a ticket is
+`TODO.md` records what is open and what was decided against (`todo-ledger`); a ticket is
 the unit an agent picks up (`ticket-generic`). This skill moves the entries
-worth doing from the first into the second. The user decides what is worth
+worth doing from the first into the second: a ticketed entry leaves
+`TODO.md`, and the ticket carries it from then on. The user decides what is worth
 doing; you sort, ground and propose.
 
 ## 1 — Find the tracker and the file
@@ -63,8 +64,9 @@ or first words), the reason, the grounding. For each `ticket` row add the
 triage it will get (step 6).
 
 Then call `AskUserQuestion`: proceed with these buckets, or adjust (under
-"Other" they name entries to move). When the tracker publishes, the question
-says so. Nothing is written before this answer.
+"Other" they name entries to move). The question says that ticketed entries
+leave `TODO.md`, and either that the tracker publishes them or that they will
+then exist only in this checkout. Nothing is written before this answer.
 
 ## 5 — Interview the unclear ones
 
@@ -110,7 +112,8 @@ Blocked by: <NN, or ->
 Source: TODO.md — "<the entry's lead, verbatim>"
 
 ## Problem
-<what fails, grounded at file:line>
+<what fails, grounded at file:line; everything the entry said, since step 7
+deletes it — review findings and dates included>
 
 ## Done when
 <what closes it; the interview's answer, where there was one>
@@ -127,10 +130,9 @@ production or publishing outward is `ready-for-human` however clear it is.
 
 Load `todo-ledger` and edit the file:
 
-- A ticketed entry **stays**: `TODO.md` is the record, and `.scratch/` is
-  untracked. `ticket-generic` deletes the entry when the ticket closes it. With
-  a GitHub tracker, append the issue's `(#N)` to the entry. A `.scratch/`
-  ticket gets no pointer, since nothing committed may name `.scratch/`.
+- A ticketed entry is **deleted**, and so is one step 2 matched to an existing
+  ticket: the ticket is now its record, so it must carry everything the entry
+  said (step 6's Problem section).
 - A `stale` entry is deleted once the user confirmed it in step 4.
 - A decided-against entry moves as step 5 says.
 - `not worth` entries stay unless the user asked to decide them against.
@@ -141,6 +143,7 @@ Commit the `TODO.md` edit, on its own, in the repo's commit style.
 
 - Every open entry was ticketed, matched to an existing ticket, decided
   against, deleted as stale, or left with its reason — none dropped silently.
+- No ticketed entry is left in `TODO.md`.
 - Every ticket has a `Source:` line, a grounded problem, and a verification in
   the repo's own terms.
 - Nothing irreversible or outward-facing is `ready-for-agent`.
