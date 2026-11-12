@@ -22,6 +22,11 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily, unless the repo already records
 its decisions elsewhere. See `docs/agents/domain.md`.
+
+## Open issues
+
+`TODO.md` at the repo root is the ledger of known open issues and of approaches decided against; the `todo-ledger`
+skill keeps it current as changes land.
 {%- if review_gate %}
 
 ## Review gate
@@ -98,6 +103,8 @@ The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.j
 {%- if automerge %}
   Auto-merge checks it again against `main` as it is when merging.
 {%- endif %}
+- While the version is 0.x, a breaking change bumps `minor`: `major` would make it 1.0.0, a deliberate release
+  decision rather than a side effect of a change.
 - Changes only to exempt paths (docs, tests, CI, repository tooling: `scripts/release`'s header lists them, plus the
   repo's own `.release-exempt`) don't bump the version, and build no package.
 {%- if gate == 'python' %}
