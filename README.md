@@ -105,7 +105,7 @@ the job needs:
 
 - a **string credential** named by `jenkins_release_credential` (default `GitHub-Agents`), holding a GitHub token
   that may create releases on the repo (Contents: read and write). It is bound on the same agent that builds the
-  agents' pull requests, whose code can read it (`TODO.md`), so it must be a token the agents already hold, as
+  agents' pull requests, whose code can read it, so it must be a token the agents already hold, as
   `GitHub-Agents` is; never one they should not have;
 - optionally a repo-owned, executable **`scripts/package`** that builds what the release attaches and leaves it as
   plain files directly in `dist/release/`, on either CI. The Package stage or step runs it on a pull request that

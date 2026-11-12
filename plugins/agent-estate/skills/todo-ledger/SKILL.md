@@ -1,20 +1,20 @@
 ---
 name: todo-ledger
-description: Maintain a repo's TODO.md while working on a dev branch — deleting what was fixed, keeping what stays open honest, and recording what was decided against, as refactors and features land. Use whenever a change closes or narrows something the file lists, when a review turns up an issue not being fixed now, when an approach is considered and rejected, or when reconciling TODO.md before a branch merges. Covers the ledger shape (Planned / Open issues) and the phased-plan shape.
+description: Maintain a repo's TODO.md while working on a dev branch — deleting what was fixed or decided against, and keeping what stays open honest, as refactors and features land. Use whenever a change closes or narrows something the file lists, when a review turns up an issue not being fixed now, when an entry is dropped or an approach rejected, or when reconciling TODO.md before a branch merges. Covers the ledger shape (Planned / Open issues) and the phased-plan shape.
 ---
 
 # Maintaining TODO.md
 
-The file records what is still open and what was decided against. Its job is
-to stop the same questions being re-litigated and to keep an honest account of
-what is actually true now. It is not a changelog: what was fixed lives in the
-code and the git history, not here. Two shapes are in use; both follow the same
-rules.
+The file records what is still open, and only that. Its job is to keep an
+honest account of what is actually true now. It is not a changelog and not an
+archive: what was fixed lives in the code and the git history, and what was
+decided against lives in the history of this file — the commit that deleted the
+entry says why. Two shapes are in use; both follow the same rules.
 
 **Ledger**: `## Planned features` → `## Open issues`.
 
 **Phased plan**: a guiding rule, `## Phase 0..N` ordered by
-risk/benefit, `## Considered and rejected`, `## Sequencing`.
+risk/benefit, `## Sequencing`.
 
 ## While the work is happening
 
@@ -36,12 +36,14 @@ enabled — `Open issues` says what still has to be confirmed: the entry the
 change would have closed stays, rewritten to say so, and a dependency no entry
 covered gets a new one. Neither is deleted as done.
 
-**Record what you decided against, with the reason.** The phased plan keeps a
-`## Considered and rejected` section for exactly this: *"Recorded so these do not
-get re-litigated."* An evaluated-and-declined dependency, a rewrite that was
-priced and dropped — these cost real time to re-derive. A ledger has no such
-section; ask the user before adding one rather than filing the decision under a
-heading that means something else.
+**Dropping something means deleting it too.** An entry the user decided
+against — not worth its cost, superseded, rejected after pricing — leaves the
+file like a closed one. Its reason goes in the message of the commit that
+deletes it, in a sentence a later `git log -S '<entry lead>' -- TODO.md` reader
+can act on: what was decided, by whom, and why. An approach rejected before it
+ever became an entry is not added just to record the rejection; its reason goes
+in the commit message of the change that chose otherwise, or beside the code if
+a reader of that code would otherwise try it.
 
 **Find something you are not fixing now?** It goes in `Open issues` with a file
 and function pointer, a description of the failure, and what would close it.
@@ -51,8 +53,9 @@ and function pointer, a description of the failure, and what would close it.
 - **Entries go inside their section.** These files often carry prose footnotes
   after a list or table; appending to the end of the file puts an entry below
   them and breaks the rendering. Check what the section's last line actually is.
-- **An old `Fixed` or `Retired` section** from before this rule: do not add to
-  it, and do not delete it in passing — tell the user it is there.
+- **An old `Fixed`, `Retired`, `Decided against` or `Considered and rejected`
+  section** from before these rules: do not add to it, and do not delete it in
+  passing — tell the user it is there.
 - **Absolute dates.** "Last week" is unreadable six months on.
 - **Cross-references rot.** When an entry or section is deleted, grep for
   references to it — "the cleanup mode above" survives long after cleanup stops
@@ -82,9 +85,9 @@ it back.
 
 ## Before finishing
 
-- Everything this change closed is deleted from the file.
+- Everything this change closed or dropped is deleted from the file.
 - Everything it narrowed says what remains.
-- Anything decided against is recorded with its reason.
+- Every entry deleted as decided against has its reason in the commit message.
 - No cross-reference points at an entry or section that has gone.
 - Identifiers in the prose match the code as it is now.
 - The file is committed alongside the code it describes.

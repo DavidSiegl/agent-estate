@@ -153,8 +153,9 @@ code:
 - **Required** — cite the spec or ticket line that requires it. The finding is
   real; I fixes it in a round.
 - **Not required** — cite the absence, then decide: amend the ticket (a round,
-  with the criterion added) or record it in `TODO.md` as decided against,
-  with the reason — load `todo-ledger` for where.
+  with the criterion added) or decline it, with the reason, in the ruling
+  below; it goes in `TODO.md` only if it stays open for later work
+  (`todo-ledger`).
 
 Write the ruling on the record finding as `Ruling (P): …` and under the ticket's
 `## Comments`. A ruling that cannot point at a line means the spec is

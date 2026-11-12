@@ -47,8 +47,9 @@ cannot ground is not a requirement yet — it becomes a ticket with
 Read before writing, in this order, skipping what the repo does not have:
 
 1. `CLAUDE.md` / `AGENTS.md` — the rules you are expected to already know.
-2. `TODO.md` — what was already decided against, so you do not re-propose it
-   (see `todo-ledger`).
+2. `TODO.md` — what is already open; for an idea you are about to propose,
+   `git log -S '<key words>' -- TODO.md` finds the commit that dropped it, if
+   one did, and why (see `todo-ledger`).
 3. `CONTEXT.md`, `docs/adr/`, `README` — the vocabulary and the standing decisions.
 4. The actual call sites. Delegate a wide search to `Explore` when the change
    spans many files; keep the writing here.

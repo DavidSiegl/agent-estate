@@ -116,9 +116,10 @@ for the chosen design is the simplest written.
   alternative gets its own file beside it, ending in the comparison table
   (`scratch-issue-tracker` for the layout). When the user, not the evidence,
   must choose, leave both open and list the questions that would decide it.
-- **The rejected alternatives**: record them with the reason in the repo's
-  `TODO.md` under "decided against" (`todo-ledger`), so nobody proposes them
-  again without the reason in view.
+- **The rejected alternatives**: record them with the reason in the commit
+  message of the change that chose the winner, and in a comment beside the code
+  where its reader would otherwise reach for one of them — not in `TODO.md`,
+  which holds only what is open (`todo-ledger`).
 
 ## Applying it at more than one level
 

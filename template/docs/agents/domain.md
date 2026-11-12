@@ -14,7 +14,7 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 The `mattpocock-skills:domain-modeling` skill creates them lazily when terms or decisions actually get resolved; the
 `/grill-with-docs` and `/improve-codebase-architecture` commands, which only the user runs, use it too.
 
-Where the repo already records its decisions somewhere else (a design document, `TODO.md`'s decided-against entries),
+Where the repo already records its decisions somewhere else (a design document),
 that stays their home: read it as you would the ADRs, and don't start a `docs/adr/` beside it.
 
 ## File structure

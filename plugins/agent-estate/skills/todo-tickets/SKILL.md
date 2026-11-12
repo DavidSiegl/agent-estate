@@ -1,15 +1,16 @@
 ---
 name: todo-tickets
-description: Turn a repo's TODO.md into tickets — sorting each open entry into worth a ticket, unclear, not worth it, or stale, interviewing the user on the unclear ones, and writing tickets in the repo's tracker for what was settled. Use when asked to ticket, triage or work down a TODO.md, to turn its open issues or planned features into tickets, or to find out which TODO.md entries are worth doing.
+description: Turn a repo's TODO.md into tickets — sorting each open entry into worth a ticket, unclear, not worth it, or stale, interviewing the user on the unclear ones, writing tickets in the repo's tracker for what was settled, and deleting what was dropped. Use when asked to ticket, triage or work down a TODO.md, to turn its open issues or planned features into tickets, or to find out which TODO.md entries are worth doing.
 ---
 
 # TODO.md to tickets
 
-`TODO.md` records what is open and what was decided against (`todo-ledger`); a ticket is
-the unit an agent picks up (`ticket-generic`). This skill moves the entries
-worth doing from the first into the second: a ticketed entry leaves
-`TODO.md`, and the ticket carries it from then on. The user decides what is worth
-doing; you sort, ground and propose.
+`TODO.md` records what is open (`todo-ledger`); a ticket is the unit an agent
+picks up (`ticket-generic`). This skill moves the entries worth doing from the
+first into the second, and empties the first of the rest: a ticketed entry
+leaves `TODO.md` because the ticket carries it from then on, and a dropped one
+leaves because nothing is left to do. The user decides what is worth doing; you
+sort, ground and propose.
 
 ## 1 — Find the tracker and the file
 
@@ -64,8 +65,9 @@ or first words), the reason, the grounding. For each `ticket` row add the
 triage it will get (step 6).
 
 Then call `AskUserQuestion`: proceed with these buckets, or adjust (under
-"Other" they name entries to move). The question says that ticketed entries
-leave `TODO.md`, and either that the tracker publishes them or that they will
+"Other" they name entries to move, or `not worth` ones to keep open). The
+question says that ticketed, `not worth` and `stale` entries all leave
+`TODO.md`, and either that the tracker publishes the tickets or that they will
 then exist only in this checkout. Nothing is written before this answer.
 
 ## 5 — Interview the unclear ones
@@ -82,9 +84,8 @@ picks rather than composes. Each entry ends in one of:
 
 - **Decided** — it joins the `ticket` bucket, with the answer as its
   acceptance.
-- **Decided against** — it moves to the file's `Decided against` /
-  `Considered and rejected` section with the user's reason and today's date, as
-  `todo-ledger` says (a ledger without such a section: ask before adding one).
+- **Decided against** — it is dropped like a `not worth` entry (step 7), with
+  the user's reason.
 - **Still open** — the user cannot settle it now. It becomes a ticket with
   `Status: needs-info` naming the question and who can answer it.
 
@@ -134,16 +135,20 @@ Load `todo-ledger` and edit the file:
   ticket: the ticket is now its record, so it must carry everything the entry
   said (step 6's Problem section).
 - A `stale` entry is deleted once the user confirmed it in step 4.
-- A decided-against entry moves as step 5 says.
-- `not worth` entries stay unless the user asked to decide them against.
+- A dropped entry — `not worth` as confirmed in step 4, or decided against in
+  step 5 — is deleted. Nothing in `TODO.md` records it; the commit does.
+- A `not worth` entry the user chose to keep open stays as it is.
 
-Commit the `TODO.md` edit, on its own, in the repo's commit style.
+Commit the `TODO.md` edit, on its own, in the repo's commit style. Its message
+names each dropped and stale entry by its lead with the one-line reason, so
+`git log -S '<lead>' -- TODO.md` answers why it went (`todo-ledger`).
 
 ## Before finishing
 
-- Every open entry was ticketed, matched to an existing ticket, decided
-  against, deleted as stale, or left with its reason — none dropped silently.
-- No ticketed entry is left in `TODO.md`.
+- Every open entry was ticketed, matched to an existing ticket, dropped,
+  deleted as stale, or kept open at the user's word — none removed silently.
+- No ticketed, dropped or stale entry is left in `TODO.md`, and the commit
+  that deleted the dropped and stale ones gives each one's reason.
 - Every ticket has a `Source:` line, a grounded problem, and a verification in
   the repo's own terms.
 - Nothing irreversible or outward-facing is `ready-for-agent`.

@@ -87,8 +87,8 @@ but it has three consequences that bite silently:
 - **It does not reach anyone else.** Nothing here survives a fresh clone or
   appears in a pull request. The exception is a repo that mirrors its tickets
   to GitHub issues (`ticket-sync`): there, every open ticket is published. A
-  decision that outlives the feature belongs in `TODO.md` or an ADR (see
-  `todo-ledger`), not only here.
+  decision that outlives the feature belongs in an ADR, or in `TODO.md` while
+  it leaves work open (see `todo-ledger`), not only here.
 - **It does not follow a worktree.** `git worktree add` checks out tracked files
   only, so an agent running in a worktree starts with no `.scratch/` at all. Pass
   such an agent the ticket's *content*, not its path.
