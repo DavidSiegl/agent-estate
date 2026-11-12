@@ -30,8 +30,8 @@
 #       token in its environment or any ancestor's (readable through /proc), since
 #       packaging runs build tools and their dependencies. That keeps the token out of
 #       packaging's environment only, not out of its reach: run as the same user in the
-#       same tree, it can leave a process that reads publish's, or rewrite this script,
-#       which is accepted because the token must be one the agents already hold.
+#       same tree, it can leave a process that reads publish's, or rewrite this script
+#       (accepted: agent-estate's docs/adr/0002-release-token-on-the-untrusted-agent.md).
 #       Fails, creating nothing, where due fails; and, with scripts/package, when
 #       dist/release/ holds no file, a directory, or a name with a `#` (which gh reads as
 #       a label).

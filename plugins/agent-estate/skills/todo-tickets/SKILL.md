@@ -136,7 +136,9 @@ Load `todo-ledger` and edit the file:
   said (step 6's Problem section).
 - A `stale` entry is deleted once the user confirmed it in step 4.
 - A dropped entry — `not worth` as confirmed in step 4, or decided against in
-  step 5 — is deleted. Nothing in `TODO.md` records it; the commit does.
+  step 5 — is deleted. Nothing in `TODO.md` records it; the commit does, and an
+  ADR too where the user wants one (`todo-ledger`: ask for each drop someone
+  would plausibly propose again, in step 5's interview where it came up).
 - A `not worth` entry the user chose to keep open stays as it is.
 
 Commit the `TODO.md` edit, on its own, in the repo's commit style. Its message
