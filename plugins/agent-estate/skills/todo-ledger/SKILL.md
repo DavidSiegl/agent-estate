@@ -45,6 +45,14 @@ ever became an entry is not added just to record the rejection; its reason goes
 in the commit message of the change that chose otherwise, or beside the code if
 a reader of that code would otherwise try it.
 
+**Ask whether a drop deserves an ADR.** A commit message is found only by
+someone who searches with the entry's own words. When the rejection is not
+obvious — a reasonable reader of the code would propose the same thing again —
+ask the user whether it gets an ADR in the repo's `docs/adr/` (or wherever the
+repo already records its decisions), and write it if they agree, in the format
+`mattpocock-skills:domain-modeling` gives: the context, what was rejected, the
+date, and why. An easily reversed or plainly not-worth drop gets no ADR.
+
 **Find something you are not fixing now?** It goes in `Open issues` with a file
 and function pointer, a description of the failure, and what would close it.
 
@@ -87,7 +95,8 @@ it back.
 
 - Everything this change closed or dropped is deleted from the file.
 - Everything it narrowed says what remains.
-- Every entry deleted as decided against has its reason in the commit message.
+- Every entry deleted as decided against has its reason in the commit message,
+  and the user was asked about an ADR for each one likely to be proposed again.
 - No cross-reference points at an entry or section that has gone.
 - Identifiers in the prose match the code as it is now.
 - The file is committed alongside the code it describes.
