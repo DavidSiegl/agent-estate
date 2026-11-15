@@ -7,7 +7,7 @@ description: "Use for \"automate me\", \"create/update/refresh my -mode skill\",
 
 A guided flow for turning the user's working conventions into a skill agents will follow. The output is one `-mode` skill tailored to them (e.g. `jay-mode`, `priya-mode`).
 
-This skill orchestrates three others: an inline mining pass (see step 1), the **plugin-dev:skill-development** skill (authoring), and the **unslop** skill (prose discipline). It sequences them. It doesn't replace them.
+This skill orchestrates three others: an inline mining pass (see step 1), the **plugin-dev:skill-development** skill (structure and placement), and the **mattpocock-skills:writing-for-agents** and **unslop** skills (prose). It sequences them. It doesn't replace them.
 
 ## Flow
 
@@ -71,7 +71,7 @@ Use the **plugin-dev:skill-development** skill to author the skill. Placement:
 
 ### 5. Iterate on prose
 
-Apply the **unslop** skill and `plugin-dev:skill-development`'s writing guidelines to every line.
+Apply the **mattpocock-skills:writing-for-agents** and **unslop** skills to every line.
 
 Show the draft to the user and take feedback. Expect multiple iterations. Cut ruthlessly. A mode skill is not a manual.
 

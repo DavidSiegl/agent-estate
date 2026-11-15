@@ -12,7 +12,7 @@ Branch or PR CI is failing and needs a fast, iterative path to green checks.
 ## Workflow
 
 1. Resolve the active PR and inspect `gh pr checks --json name,bucket,state,workflow,link`.
-2. Inspect failed jobs and extract the first actionable error. Use GitHub Actions logs when available; otherwise use the check link to identify the failing command or service.
+2. Inspect failed jobs and extract the first actionable error. Use GitHub Actions logs when available; otherwise use the check link to identify the failing command or service. When the error does not point at its cause, find it with the **mattpocock-skills:diagnosing-bugs** skill.
 3. Apply the smallest safe fix.
 4. Push, re-check the PR check set, and repeat until green.
 
