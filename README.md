@@ -11,7 +11,7 @@ them.
   docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger and todo-tickets,
-  readme-sync, unslop, stale-worktrees, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
+  readme-sync, unslop, stale-worktrees, make-pr-easy-to-review, teach, how, why, babysit, fix-ci, get-pr-comments, automate-me, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
   template, the `chore` agent in `agents/`, which takes fully specified work (run the tests, apply a given edit) on
   Sonnet instead of the session's model, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
   skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
