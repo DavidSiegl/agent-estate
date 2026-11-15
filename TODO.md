@@ -9,6 +9,15 @@
   those helpers' messages name what the caller calls the commit, if that costs less than the parameter it seems to
   need.
 
+- **Three skills do the job of a mattpocock-skills skill without saying how they differ.** `handover` and
+  `/handoff` both write a document for a fresh context to continue from (`handover` is hook-driven and read back after
+  `/clear`; `/handoff` writes to `$TMPDIR` for another agent). `spec-generic` covers `/grill-with-docs`, `/to-spec`
+  and `/to-tickets` in one pass, interviewing where `/to-spec` refuses to. `ticket-generic` and `/implement` both
+  implement a ticket. The pocock ones only run when typed, so they never compete for a trigger, but a user or agent
+  picking between them has nothing to go on. Closes when each pair is either merged into one, or the estate skill's
+  description names the pocock one and when to prefer each, as `deep-modules` and `design-it-twice` do for
+  `codebase-design`.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.
