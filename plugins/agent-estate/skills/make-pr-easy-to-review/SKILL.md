@@ -45,11 +45,10 @@ Do not push if the tree changed unintentionally.
 
 ## Reviewer Guidance
 
-When code behavior should stay untouched, prefer PR description and review notes:
+When code behavior should stay untouched, prefer PR description and review notes. Rewrite the description with the `mattpocock-skills:pr` skill, whose summary and merge-danger sections cover what the diff does and what could break, then add what its template leaves out:
 
-- Add a TL;DR that matches the actual diff.
 - Separate core files from generated or mechanical files.
-- Call out risky behavior changes, migration order, rollout plan, and test coverage.
+- Call out migration order, rollout plan, and test coverage.
 - Link issue trackers, dashboards, or design docs when they explain intent.
 
 ## Guardrails
