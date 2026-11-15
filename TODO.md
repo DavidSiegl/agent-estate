@@ -18,6 +18,12 @@
   description names the pocock one and when to prefer each, as `deep-modules` and `design-it-twice` do for
   `codebase-design`.
 
+- **`automate-me`'s `claude-project-dir.mjs` has no test.** Review 01 (add-skills), F12: "no test beside it, where
+  the plugin's other scripts each have one (`hooks/readme-sync_test.py`, `hooks/review-gate_test.sh`);
+  `projectDirName`/`projectDir` are exported for a test that is not there. The hash-and-prefix fallback (:43-44,
+  :76-79) is the part that can drift silently." Closes with a `node --test` file beside it covering the derived name,
+  the over-200-character hash and the single-prefix fallback.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.
