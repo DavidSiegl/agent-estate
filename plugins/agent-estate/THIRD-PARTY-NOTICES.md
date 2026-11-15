@@ -5,7 +5,7 @@ at commit a12b047, whose
 [NOTICE](https://github.com/michael-denyer/pstack-claude/blob/a12b04786023e762f12f5de7bb5fafb8c23f8c36/NOTICE.md)
 records where each came from upstream:
 
-- `how`, `why`, `teach`, `principle-never-block-on-the-human`, `babysit`, `automate-me` (with its `scripts/claude-project-dir.mjs`, from pstack's `reflect`): pstack, MIT,
+- `how`, `why`, `teach`, `babysit`, `automate-me` (with its `scripts/claude-project-dir.mjs`, from pstack's `reflect`): pstack, MIT,
   Copyright (c) 2026 Lauren Tan, Copyright (c) 2026 Michael Denyer.
 - `make-pr-easy-to-review`, `fix-ci`, `get-pr-comments`: Cursor's cursor-team-kit, MIT, Copyright (c) 2026 Cursor,
   with the pstack-claude port's changes Copyright (c) 2026 Michael Denyer.
