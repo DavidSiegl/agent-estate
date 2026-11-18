@@ -155,7 +155,11 @@ Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
 A change to a question goes in `copier.yml` and in the `init-repo` skill's table of answers. Before committing, try
 a change on a scratch repo: `copier copy` with every combination it touches, then `copier update` on a repo created
-from the previous commit, and run `python3 tests/release_test.py` and `python3 tests/gate_test.py`.
+from the previous commit.
+
+`tests/run` runs every test suite in the repo, and `tests/lint-workflows` runs actionlint over the repo's workflows
+and the ones the template renders for each combination of answers (it needs actionlint on PATH). The Tests workflow
+runs both on every pull request into `main`.
 
 A merged change to `copier.yml`, `template/` or `init/` reaches repos only once it is in a release: a `vX.Y.Z` tag
 on `main`, which `copier update` moves to. Tag when what has merged since the last tag is something you want every
