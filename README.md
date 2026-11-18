@@ -154,3 +154,7 @@ A change to a question goes in `copier.yml` and in the `init-repo` skill's table
 a change on a scratch repo: `copier copy` with every combination it touches, then `copier update` on a repo created
 from the previous commit, and run `python3 tests/release_test.py` and `python3 tests/gate_test.py`. Tag a release (`git tag vX.Y.Z`) so `copier update` moves between versions rather than
 commits.
+
+## License
+
+MIT, in `LICENSE`. The skills `plugins/agent-estate/THIRD-PARTY-NOTICES.md` lists keep their own MIT notices.
