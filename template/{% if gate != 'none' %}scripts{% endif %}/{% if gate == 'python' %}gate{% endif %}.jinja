@@ -2,7 +2,8 @@
 # Run octoflow-ai's quality gate on this working tree: the tests with coverage (none for a
 # change to docs alone, below), then gate.py, which judges the change since BASE and
 # writes quality.md at the repo root{% if ci == 'jenkins' %}, and pytest's JUnit report there, test-results.xml,
-# which the Jenkinsfile shows as the build's test results{% endif %}.
+# which the Jenkinsfile shows as the build's test results{% elif ci == 'github-actions' %}, and pytest's JUnit report there,
+# test-results.xml, which gate.yml adds to the job summary{% endif %}.
 #
 #   scripts/gate [BASE]     BASE is any git revision; default the branch main, read as
 #                           refs/heads/main so a tag main cannot stand in (gitrevisions(7)).

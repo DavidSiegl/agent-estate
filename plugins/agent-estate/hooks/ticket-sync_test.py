@@ -2,10 +2,12 @@
 """Tests for ticket-sync.py: run `python3 ticket-sync_test.py`. GitHub is a fake
 `gh` on PATH that keeps one repo's issues and labels in a JSON file and logs
 every call that changes them."""
+import fcntl
 import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -117,8 +119,8 @@ class TicketSync(unittest.TestCase):
         return subprocess.run([str(SYNC), *args], cwd=self.root, env=self.env,
                               capture_output=True, text=True)
 
-    def hook(self, event, path=None):
-        payload = {"hook_event_name": event, "cwd": str(self.root)}
+    def hook(self, event, path=None, cwd=None):
+        payload = {"hook_event_name": event, "cwd": str(cwd or self.root)}
         if path:
             payload |= {"tool_name": "Read" if event == "PreToolUse" else "Write",
                         "tool_input": {"file_path": str(path)}}
@@ -142,6 +144,85 @@ class TicketSync(unittest.TestCase):
         self.assertEqual(self.hook("SessionStart"), "")
         self.assertEqual(self.run_sync().returncode, 1)
         self.assertEqual(self.calls(), 0)
+
+    def test_a_linked_worktree_syncs_the_main_checkouts_tickets(self):
+        self.opt_in_and_sync()
+        wt = Path(self.tmp.name) / "wt"
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=self.env)
+        subprocess.run([*git, "worktree", "add", "-q", str(wt)], check=True, env=self.env)
+        self.change(1, title="[feat/01] Renamed on GitHub")
+        note = self.hook("SessionStart", cwd=wt)
+        self.assertIn(f"synced {self.root / '.scratch'} tickets", note)
+        self.assertIn("feat/01", note)
+        self.assertIn("# Renamed on GitHub", self.t1.read_text())
+        self.assertFalse((wt / ".scratch").exists(), "nothing is restored into the worktree")
+
+    def test_a_ticket_under_a_worktrees_own_scratch_is_reported_unsynced(self):
+        # Outside the main checkout, and inside it where Claude Code puts its
+        # worktrees; the note needs no lock, so one held elsewhere cannot delay it.
+        self.opt_in_and_sync()
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=self.env)
+        for wt in (Path(self.tmp.name) / "wt", self.root / ".claude/worktrees/wt"):
+            with self.subTest(wt=wt):
+                subprocess.run([*git, "worktree", "add", "-q", "--detach", str(wt)], check=True, env=self.env)
+                ticket = wt / ".scratch/feat/issues/03-third.md"
+                ticket.parent.mkdir(parents=True)
+                ticket.write_text("# Third\nStatus: ready-for-agent\n")
+                before = self.calls()
+                with open(self.root / ".scratch/.ticket-sync.lock", "w") as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    started = time.monotonic()
+                    note = self.hook("PostToolUse", ticket, cwd=wt)
+                    self.assertLess(time.monotonic() - started, 5)
+                self.assertIn("not synced", note)
+                self.assertIn(str(self.root / ".scratch"), note)
+                self.assertEqual(self.calls(), before)
+
+    def test_a_worktree_whose_main_checkout_is_unknown_says_so(self):
+        t = Path(self.tmp.name)
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+        sep = t / "sep"
+        subprocess.run([*git, "init", "-q", f"--separate-git-dir={t / 'sep.git'}", str(sep)],
+                       check=True, env=self.env)
+        subprocess.run([*git, "-C", str(sep), "commit", "-q", "--allow-empty", "-m", "c"],
+                       check=True, env=self.env)
+        subprocess.run([*git, "-C", str(sep), "worktree", "add", "-q", str(t / "sepwt")],
+                       check=True, env=self.env)
+        subprocess.run(["git", "-C", str(sep), "config", "agent.ticketSync", "o/r"],
+                       check=True, env=self.env)
+        p = subprocess.run([str(SYNC), str(t / "sepwt")], env=self.env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1)
+        self.assertNotIn("opt in with", p.stderr)
+        self.assertIn("main checkout", p.stderr)
+        self.assertIn("main checkout", self.hook("SessionStart", cwd=t / "sepwt"))
+        self.assertFalse((t / "sepwt/.scratch").exists())
+
+    def test_a_repo_whose_git_dir_is_elsewhere_syncs_its_own_checkout(self):
+        # A submodule's git dir is the superproject's .git/modules/<name>, and
+        # --separate-git-dir puts it anywhere: the checkout is still the root.
+        t = Path(self.tmp.name)
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "protocol.file.allow=always"]
+        subprocess.run([*git, "-C", str(self.root), "commit", "-q", "--allow-empty", "-m", "c"],
+                       check=True, env=self.env)
+        sep = t / "sep"
+        subprocess.run([*git, "init", "-q", f"--separate-git-dir={t / 'sep.git'}", str(sep)],
+                       check=True, env=self.env)
+        sup = t / "sup"
+        subprocess.run([*git, "init", "-q", str(sup)], check=True, env=self.env)
+        subprocess.run([*git, "-C", str(sup), "submodule", "add", "-q", str(self.root), "s"],
+                       check=True, env=self.env, capture_output=True)
+        for checkout in (sep, sup / "s"):
+            with self.subTest(checkout=checkout.name):
+                subprocess.run(["git", "-C", str(checkout), "config", "agent.ticketSync", "o/r"],
+                               check=True, env=self.env)
+                ticket = checkout / ".scratch/feat/issues/01-first.md"
+                ticket.parent.mkdir(parents=True, exist_ok=True)
+                ticket.write_text("# Sub ticket\nStatus: ready-for-agent\n")
+                p = subprocess.run([str(SYNC), str(checkout)], env=self.env, capture_output=True, text=True)
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertTrue((checkout / ".scratch/.ticket-sync-state.json").exists(), p.stdout)
 
     def test_push_creates_issues(self):
         self.opt_in_and_sync()

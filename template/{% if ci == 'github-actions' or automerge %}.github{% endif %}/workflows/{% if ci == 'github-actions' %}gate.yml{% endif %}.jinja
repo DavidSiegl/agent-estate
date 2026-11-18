@@ -124,29 +124,73 @@ jobs:
       # one that breaks the build fails before it is merged and a change to docs alone
       # builds nothing. The release job runs it itself on main when it releases.
       - name: Package
-        if: github.event_name == 'pull_request' && hashFiles('scripts/package') != ''
-        run: |
-          status=0
-          scripts/release changed "$GATE_BASE" || status=$?
-          case $status in
-            0) scripts/package ;;
-            1) echo 'Only exempt paths changed: nothing to package.' ;;
-            *) echo "scripts/release changed failed (exit status $status)" >&2; exit 1 ;;
-          esac
+        if: github.event_name == 'pull_request'
+        run: scripts/release package-if-changed "$GATE_BASE"
 {%- endif %}
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi
+      # The JUnit reports of the tests scripts/gate ran, which it leaves at the repo root,
+      # added to the job summary: the count, and each test that failed with its message,
+      # the first SHOWN failures only and each cut at TEXT characters, since GitHub drops a
+      # step's whole summary past 1 MiB. Shown, never judged, as on Jenkins: a report that
+      # cannot be read is named in the summary, and a summary that cannot be written is
+      # left out, rather than failing the job, whose result is the gate's alone. With no
+      # report{% if gate == 'python' %}, as on a change to docs alone,{% endif %} it adds nothing.
+      - name: Tests
+        if: always()
+        shell: python3 {0}
+        run: |
+          import glob, html, os, re
+          import xml.etree.ElementTree as ET
+
+          SHOWN, TEXT = 50, 4000
+          lines = []
+          shown = total = 0
+          for path in sorted(glob.glob("test-results*.xml")):
+              try:
+                  cases = list(ET.parse(path).getroot().iter("testcase"))
+              except (ET.ParseError, OSError) as e:
+                  lines.append(f"- `{path}` could not be read: {html.escape(str(e))}")
+                  continue
+              failed = []
+              for case in cases:
+                  bad = case.find("failure")
+                  if bad is None:
+                      bad = case.find("error")
+                  if bad is not None:
+                      failed.append((case, bad))
+              skipped = sum(case.find("skipped") is not None for case in cases)
+              lines.append(f"- `{path}`: {len(cases)} tests, {len(failed)} failed, {skipped} skipped")
+              total += len(failed)
+              for case, bad in failed[:max(0, SHOWN - shown)]:
+                  shown += 1
+                  name = html.escape(".".join(filter(None, (case.get("classname"), case.get("name")))))
+                  text = (bad.text or bad.get("message") or "").strip()
+                  if len(text) > TEXT:
+                      text = text[:TEXT] + f"\n… cut at {TEXT} characters"
+                  # A fence longer than any run of backticks in the text, which it then cannot close.
+                  fence = "`" * max(3, 1 + max(map(len, re.findall("`+", text)), default=0))
+                  lines.append(f"\n<details><summary>{name}</summary>\n\n{fence}\n{text}\n{fence}\n\n</details>\n")
+          if total > shown:
+              lines.append(f"\nOnly the first {shown} of {total} failures are shown; the log has the rest.")
+          if lines:
+              try:
+                  with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                      summary.write("\n## Tests\n\n" + "\n".join(lines) + "\n")
+              except (KeyError, OSError) as e:
+                  print(f"Tests: cannot write the job summary: {e}")
 {%- if release %}
 
   # Releases a push to main whose version has no release yet, packaging it first; any other
-  # push finds its release there and builds nothing (scripts/release due and publish). It
-  # releases with the workflow's own token, so it needs no secret: a merge auto-merge makes
-  # with AUTOMERGE_TOKEN starts this workflow as any push does, which one made with that
-  # token itself would not. scripts/package runs in a step with no token in its environment,
-  # since packaging runs build tools and their dependencies; that keeps the token out of its
-  # environment only, not out of its reach (scripts/release's header, publish). The
-  # workflow's concurrency group keeps releases in push order.
+  # push finds its release there and builds nothing (scripts/release due and publish; due
+  # says why it cannot package itself). It releases with the workflow's own token, so it
+  # needs no secret: a merge auto-merge makes with AUTOMERGE_TOKEN starts this workflow as
+  # any push does, which one made with that token itself would not. scripts/package runs in
+  # a step with no token in its environment, since packaging runs build tools and their
+  # dependencies; that keeps the token out of its environment only, not out of its reach
+  # (scripts/release's header, publish). The workflow's concurrency group keeps releases in
+  # push order.
   release:
     needs: gate
     if: github.event_name == 'push'

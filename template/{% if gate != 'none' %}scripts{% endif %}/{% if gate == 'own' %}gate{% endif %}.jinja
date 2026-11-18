@@ -1,0 +1,38 @@
+#!/bin/sh
+# Judge the change this working tree makes since BASE: this repo's quality gate. A starter
+# from the agent-estate template, which `copier update` never touches again: replace its
+# body with the repo's own checks.
+#
+#   scripts/gate [BASE]     BASE is any git revision; default the branch main, read as
+#                           refs/heads/main so a tag main cannot stand in (gitrevisions(7)).
+#
+{%- if ci == 'none' %}
+# Its exit status is the verdict: 0 when the change passes, 1 when it fails, 2 when it
+# could not be judged (a tool missing, BASE not a commit). Two files it may leave at the
+# repo root are reports, never verdicts: quality.md saying why, and JUnit XML reports of
+# the tests it ran, named test-results*.xml. Typically it runs the tests, the linters, and
+# anything more on the lines the change adds, with a change to docs alone allowed to skip
+# what cannot fail on it.
+{%- elif ci == 'jenkins' %}
+# Jenkins runs it on every pull request (from the merge base) and on main, and judges by
+# its exit status alone: 0 when the change passes, 1 when it fails, 2 when it could not be
+# judged (a tool missing, BASE not a commit). Two files it may leave at the repo root are
+# shown, never judged: quality.md saying why, which Jenkins archives, and JUnit XML reports
+# of the tests it ran, named test-results*.xml, which Jenkins publishes as the build's
+# test results. It runs on a fresh checkout, so it installs or builds whatever its checks
+# need itself. Typically: the tests, the linters, and anything more on the lines the
+# change adds, with a change to docs alone allowed to skip what cannot fail on it.
+{%- else %}
+# GitHub Actions runs it on each pull request (from its merge base){% if release %} and each push to main{% endif %},
+# and judges by its exit status alone: 0 when the change passes, 1 when it fails, 2 when it
+# could not be judged (a tool missing, BASE not a commit). Two files it may leave at the
+# repo root are shown in the job summary, never judged: quality.md saying why, and JUnit
+# XML reports of the tests it ran, named test-results*.xml. It runs on a fresh checkout,
+# so it installs or builds whatever its checks need itself. Typically: the tests, the
+# linters, and anything more on the lines the change adds, with a change to docs alone
+# allowed to skip what cannot fail on it.
+{%- endif %}
+set -eu
+
+echo "scripts/gate: not written yet; give it this repo's checks (its header says what CI expects)" >&2
+exit 2

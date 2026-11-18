@@ -230,21 +230,44 @@ class Release(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertIn("cannot fetch nope", r.stderr)
 
-    # --- changed ------------------------------------------------------------
+    # --- package-if-changed -----------------------------------------------
 
-    def test_changed_is_0_for_a_released_path_and_1_for_exempt_ones_alone(self):
-        self.commit({"README.md": "x", "tests/t.py": "x"})
-        self.assertEqual(self.run_release("changed", "main").returncode, 1)
+    def test_package_if_changed_runs_scripts_package_for_a_released_path(self):
+        self.package("touch packaged\nexit 3\n")
+        self.on_main({})
         self.commit({"p/cli.py": "2"})
-        self.assertEqual(self.run_release("changed", "main").returncode, 0)
+        r = self.run_release("package-if-changed", "main")
+        self.assertEqual(r.returncode, 3)
+        self.assertTrue((self.root / "packaged").exists())
 
-    def test_changed_takes_release_exempt_from_head(self):
+    def test_package_if_changed_builds_nothing_for_exempt_paths_alone(self):
+        self.package("touch packaged\n")
+        self.on_main({})
+        self.commit({"README.md": "x", "tests/t.py": "x"})
+        r = self.run_release("package-if-changed", "main")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("nothing to package", r.stdout)
+        self.assertFalse((self.root / "packaged").exists())
+
+    def test_package_if_changed_takes_release_exempt_from_head(self):
+        self.package("touch packaged\n")
+        self.on_main({})
         self.commit({".release-exempt": "assets\n\n  # comment\n", "assets/a/b.svg": "x"})
-        self.assertEqual(self.run_release("changed", "main").returncode, 1)
+        r = self.run_release("package-if-changed", "main")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse((self.root / "packaged").exists())
 
-    def test_changed_fails_otherwise_on_a_bad_base(self):
-        r = self.run_release("changed", "no-such-rev")
-        self.assertNotIn(r.returncode, (0, 1))
+    def test_package_if_changed_builds_nothing_without_scripts_package(self):
+        self.commit({"p/cli.py": "2"})
+        r = self.run_release("package-if-changed", "main")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("no scripts/package; nothing to package", r.stdout)
+
+    def test_package_if_changed_fails_with_2_on_a_bad_base(self):
+        self.package("touch packaged\n")
+        r = self.run_release("package-if-changed", "no-such-rev")
+        self.assertEqual(r.returncode, 2)
+        self.assertFalse((self.root / "packaged").exists())
 
     # --- publish ------------------------------------------------------------
 
@@ -335,7 +358,7 @@ class Release(unittest.TestCase):
     # --- usage --------------------------------------------------------------
 
     def test_an_unknown_or_missing_subcommand_fails_with_usage(self):
-        for args in ((), ("bump",), ("changed",), ("raised",), ("due", "x"), ("publish", "x")):
+        for args in ((), ("bump",), ("changed", "main"), ("package-if-changed",), ("raised",), ("due", "x"), ("publish", "x")):
             with self.subTest(args=args):
                 r = self.run_release(*args)
                 self.assertEqual(r.returncode, 2)
