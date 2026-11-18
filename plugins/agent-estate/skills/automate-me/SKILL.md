@@ -61,7 +61,7 @@ Group the combined signals into sections. Common ones (use only what applies):
 
 ### 4. Draft the skill
 
-Use the **plugin-dev:skill-development** skill to author the skill. Placement:
+Use the **plugin-dev:skill-development** skill to author the skill. Without the plugin-dev plugin, write the `SKILL.md` directly: YAML frontmatter with `name` and `description`, then the body, by the rules below. Placement:
 
 - Path: preserve an existing mode skill's category. For a new mode, use `.claude/skills/<handle>/<handle>-mode/SKILL.md` when the repo has an established personal category for that handle. Otherwise default to `.claude/skills/<handle>-mode/SKILL.md` in the project (or `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/<handle>-mode/` if the user prefers a personal skill).
 - Handle: the user's first name or chosen identifier.
@@ -71,7 +71,7 @@ Use the **plugin-dev:skill-development** skill to author the skill. Placement:
 
 ### 5. Iterate on prose
 
-Apply the **mattpocock-skills:writing-for-agents** and **unslop** skills to every line.
+Apply the **mattpocock-skills:writing-for-agents** and **unslop** skills to every line; without the mattpocock-skills plugin, **unslop** alone.
 
 Show the draft to the user and take feedback. Expect multiple iterations. Cut ruthlessly. A mode skill is not a manual.
 

@@ -152,6 +152,17 @@ A plugin's own settings may set only `agent` and `subagentStatusLine`, so two th
 
 Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
+## Companion plugins
+
+Some skills name skills from other plugins, which a plugin cannot declare as dependencies. Install them alongside
+for the skills to work in full:
+
+| Plugin | From | Used by |
+|---|---|---|
+| `plugin-dev` | `claude-plugins-official` (`/plugin install plugin-dev@claude-plugins-official`) | `automate-me` writes the skill with `plugin-dev:skill-development`, and says what to do without it |
+| `mattpocock-skills` | `claude-plugins-official` (`/plugin install mattpocock-skills@claude-plugins-official`) | `automate-me` (`writing-for-agents`) and `make-pr-easy-to-review` (`pr`) run one, and say what to do without it; `fix-ci`, `spec-generic`, `ticket-generic` and `todo-ledger` only suggest one; `deep-modules`, `design-it-twice` and `scratch-issue-tracker` only mention them |
+| `brz` | private, not published | only in the BRZ estate: `cross-review`, `spec-generic`, `ticket-generic` and `triad` name its skills as the BRZ alternatives to their own steps |
+
 ## Changing the template
 
 A change to a question goes in `copier.yml` and in the `init-repo` skill's table of answers. Before committing, try

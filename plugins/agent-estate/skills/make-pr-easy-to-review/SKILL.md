@@ -45,7 +45,7 @@ Do not push if the tree changed unintentionally.
 
 ## Reviewer Guidance
 
-When code behavior should stay untouched, prefer PR description and review notes. Rewrite the description with the `mattpocock-skills:pr` skill, whose summary and merge-danger sections cover what the diff does and what could break, then add what its template leaves out:
+When code behavior should stay untouched, prefer PR description and review notes. Rewrite the description with the `mattpocock-skills:pr` skill, whose summary and merge-danger sections cover what the diff does and what could break (without the mattpocock-skills plugin, write those two sections yourself), then add what its template leaves out:
 
 - Separate core files from generated or mechanical files.
 - Call out migration order, rollout plan, and test coverage.
