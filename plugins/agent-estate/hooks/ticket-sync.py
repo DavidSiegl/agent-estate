@@ -637,8 +637,9 @@ class Repo:
 def opted_in(where: Path) -> tuple[Path, str] | None:
     """Returns the checkout whose .scratch/ the git repo containing directory
     where syncs, and the GitHub repo it syncs with; None when it is not a repo
-    that opted in, or a linked worktree whose main checkout is unknown (a bare
-    repo's, or one whose git dir does not record its checkout).
+    that opted in. Raises SyncError for an opted-in linked worktree whose main
+    checkout is unknown (a bare repo's, or one whose git dir does not record
+    its checkout): nothing syncs there.
 
     That checkout is the repo's toplevel, except in a linked worktree, where it
     is the main checkout: agent.ticketSync is in the config they share and
@@ -663,13 +664,15 @@ def opted_in(where: Path) -> tuple[Path, str] | None:
     # for a submodule, names it relative to the git dir.
     listing = git("worktree", "list", "--porcelain", "-z")
     main = listing.split("\0\0")[0].split("\0") if listing else []
+    unknown = SyncError(f"{root} is a linked worktree whose main checkout git does not record, "
+                        "so there is no .scratch/ to sync; nothing is synced here")
     if not main or not main[0].startswith("worktree ") or "bare" in main:
-        return None
+        raise unknown
     checkout = Path(main[0].removeprefix("worktree "))
     if checkout == Path(common):
         named = git("--git-dir", common, "config", "--get", "core.worktree")
         if not named:
-            return None
+            raise unknown
         checkout = (Path(common) / named).resolve()
     return checkout, repo
 
@@ -695,7 +698,12 @@ def hook() -> None:
         if "/.scratch/" not in file or "/issues/" not in file or not os.path.isfile(file):
             return
         target = Path(file)
-    found = opted_in(target if target.is_dir() else target.parent)
+    try:
+        found = opted_in(target if target.is_dir() else target.parent)
+    except SyncError as e:
+        found = None
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": name,
+                                                 "additionalContext": f"ticket-sync: {e}"}}))
     if not found:
         return
 
@@ -719,6 +727,10 @@ def hook() -> None:
                         if name == "PreToolUse" else
                         f"ticket-sync rewrote {target} from GitHub after this edit ({line}); "
                         "read it again before editing it.")
+            elif not target.resolve().is_relative_to(found[0].resolve()):
+                # A linked worktree's own .scratch/ (see opted_in).
+                notes.append(f"ticket-sync: {target} is not synced: this repo syncs the "
+                             f"tickets under {found[0] / '.scratch'}.")
         finally:
             repo.close()
     except SyncError as e:
@@ -744,7 +756,11 @@ def main(argv: list[str]) -> int:
     else:
         print(__doc__, file=sys.stderr)
         return 2
-    found = opted_in(where)
+    try:
+        found = opted_in(where)
+    except SyncError as e:
+        print(f"ticket-sync: {e}", file=sys.stderr)
+        return 1
     if not found:
         print(f"ticket-sync: {where} is not in a git repo that set agent.ticketSync; "
               "opt in with: git config agent.ticketSync <owner/name>", file=sys.stderr)

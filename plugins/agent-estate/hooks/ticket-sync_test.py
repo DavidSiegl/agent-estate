@@ -156,6 +156,40 @@ class TicketSync(unittest.TestCase):
         self.assertIn("# Renamed on GitHub", self.t1.read_text())
         self.assertFalse((wt / ".scratch").exists(), "nothing is restored into the worktree")
 
+    def test_a_ticket_under_a_worktrees_own_scratch_is_reported_unsynced(self):
+        self.opt_in_and_sync()
+        wt = Path(self.tmp.name) / "wt"
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=self.env)
+        subprocess.run([*git, "worktree", "add", "-q", str(wt)], check=True, env=self.env)
+        ticket = wt / ".scratch/feat/issues/03-third.md"
+        ticket.parent.mkdir(parents=True)
+        ticket.write_text("# Third\nStatus: ready-for-agent\n")
+        before = self.calls()
+        note = self.hook("PostToolUse", ticket, cwd=wt)
+        self.assertIn("not synced", note)
+        self.assertIn(str(self.root / ".scratch"), note)
+        self.assertEqual(self.calls(), before)
+
+    def test_a_worktree_whose_main_checkout_is_unknown_says_so(self):
+        t = Path(self.tmp.name)
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+        sep = t / "sep"
+        subprocess.run([*git, "init", "-q", f"--separate-git-dir={t / 'sep.git'}", str(sep)],
+                       check=True, env=self.env)
+        subprocess.run([*git, "-C", str(sep), "commit", "-q", "--allow-empty", "-m", "c"],
+                       check=True, env=self.env)
+        subprocess.run([*git, "-C", str(sep), "worktree", "add", "-q", str(t / "sepwt")],
+                       check=True, env=self.env)
+        subprocess.run(["git", "-C", str(sep), "config", "agent.ticketSync", "o/r"],
+                       check=True, env=self.env)
+        p = subprocess.run([str(SYNC), str(t / "sepwt")], env=self.env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1)
+        self.assertNotIn("opt in with", p.stderr)
+        self.assertIn("main checkout", p.stderr)
+        self.assertIn("main checkout", self.hook("SessionStart", cwd=t / "sepwt"))
+        self.assertFalse((t / "sepwt/.scratch").exists())
+
     def test_a_repo_whose_git_dir_is_elsewhere_syncs_its_own_checkout(self):
         # A submodule's git dir is the superproject's .git/modules/<name>, and
         # --separate-git-dir puts it anywhere: the checkout is still the root.
