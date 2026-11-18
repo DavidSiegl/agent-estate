@@ -125,14 +125,7 @@ jobs:
       # builds nothing. The release job runs it itself on main when it releases.
       - name: Package
         if: github.event_name == 'pull_request' && hashFiles('scripts/package') != ''
-        run: |
-          status=0
-          scripts/release changed "$GATE_BASE" || status=$?
-          case $status in
-            0) scripts/package ;;
-            1) echo 'Only exempt paths changed: nothing to package.' ;;
-            *) echo "scripts/release changed failed (exit status $status)" >&2; exit 1 ;;
-          esac
+        run: scripts/release package-if-changed "$GATE_BASE"
 {%- endif %}
       - name: Report
         if: always()
@@ -140,10 +133,10 @@ jobs:
 {%- if release %}
 
   # Releases a push to main whose version has no release yet, packaging it first; any other
-  # push finds its release there and builds nothing (scripts/release due and publish). It
-  # releases with the workflow's own token, so it needs no secret: a merge auto-merge makes
-  # with AUTOMERGE_TOKEN starts this workflow as any push does, which one made with that
-  # token itself would not. scripts/package runs in a step with no token in its environment,
+  # push finds its release there and builds nothing (scripts/release due and publish; due
+  # says why it cannot package itself). It releases with the workflow's own token, so it
+  # needs no secret: a merge auto-merge makes with AUTOMERGE_TOKEN starts this workflow as
+  # any push does, which one made with that token itself would not. scripts/package runs in a step with no token in its environment,
   # since packaging runs build tools and their dependencies; that keeps the token out of its
   # environment only, not out of its reach (scripts/release's header, publish). The
   # workflow's concurrency group keeps releases in push order.

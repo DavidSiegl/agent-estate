@@ -3,10 +3,12 @@
 # and of how release versions compare. From the agent-estate template; `copier update`
 # rewrites it, so change the template, not this copy.
 #
-#   scripts/release changed BASE
-#       Exit 0 when the change from BASE to HEAD touches a released path, 1 when it
-#       touches only exempt ones, 2 on an error (BASE unknown). CI's Package stage or
-#       step builds a pull request only on 0, so a change to docs alone builds nothing.
+#   scripts/release package-if-changed BASE
+#       Run the repo's scripts/package when the change from BASE to HEAD touches a
+#       released path, exiting with its status; when it touches only exempt ones, say so
+#       on standard output and exit 0, so a change to docs alone builds nothing. Exit 2 on
+#       an error (BASE unknown, no scripts/package). CI's Package stage or step runs it on
+#       a pull request.
 #   scripts/release raised TARGET
 #       Fetch origin's TARGET branch, then exit 0 when HEAD's release version is greater
 #       than TARGET's, or when the change since their merge base touches only exempt
@@ -22,7 +24,9 @@
 #       the latest release and gh failing for any reason but a missing release. Needs gh
 #       with GH_TOKEN, as publish does. CI runs it on main first, and only on 0 runs the
 #       repo's scripts/package and then publish, so a merge that releases nothing builds
-#       nothing.
+#       nothing. It answers rather than packaging itself, as package-if-changed does,
+#       because it holds the token, and scripts/package must not run below a process that
+#       does (publish).
 #   scripts/release publish
 #       Create GitHub release v<version> at HEAD with gh (GH_TOKEN must allow it), unless
 #       it exists. When the repo has scripts/package, attach every file directly in
@@ -58,8 +62,8 @@
 # Exempt paths, whose changes reach no user: EXEMPT below, plus the lines of the repo's own
 # .release-exempt, one git glob pathspec per line (`assets` covers everything under
 # assets/; `*` does not cross a /), blank lines ignored and `#` starting a comment. Any
-# other path is released, so a path left off errs towards a raise. `changed` reads
-# .release-exempt at HEAD; `raised` reads it on TARGET, so a pull request's edit to it
+# other path is released, so a path left off errs towards a raise. `package-if-changed`
+# reads .release-exempt at HEAD; `raised` reads it on TARGET, so a pull request's edit to it
 # counts from the next pull request on, as scripts/gate reads its rules at BASE.
 set -eu
 # Every pattern here is a git pathspec, which git expands; the shell must not.
@@ -80,7 +84,7 @@ Jenkinsfile
 .release-exempt'
 
 usage() {
-    echo "usage: scripts/release changed BASE | raised TARGET | due | publish" >&2
+    echo "usage: scripts/release package-if-changed BASE | raised TARGET | due | publish" >&2
     exit 2
 }
 
@@ -210,11 +214,16 @@ version_greater() {
         }'
 }
 
-changed() {
+package_if_changed() {
+    [ -e scripts/package ] || fail "no scripts/package to run"
     exempt=$(exempt_at HEAD)
     status=0
     touches_released "$1" "$exempt" || status=$?
-    exit "$status"
+    case $status in
+        0) exec scripts/package ;;
+        1) echo "scripts/release: only exempt paths changed; nothing to package" ;;
+        *) fail "cannot diff the change since $1" ;;
+    esac
 }
 
 raised() {
@@ -316,7 +325,7 @@ publish() {
 }
 
 case ${1:-} in
-    changed) [ $# -eq 2 ] || usage; changed "$2" ;;
+    package-if-changed) [ $# -eq 2 ] || usage; package_if_changed "$2" ;;
     raised) [ $# -eq 2 ] || usage; raised "$2" ;;
     due) [ $# -eq 1 ] || usage; due ;;
     publish) [ $# -eq 1 ] || usage; publish ;;
