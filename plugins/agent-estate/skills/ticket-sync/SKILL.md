@@ -44,6 +44,11 @@ GitHub. A machine joining with an old copy of the tickets gets conflicts, not
 overwrites: bring its `.scratch/` level with the newest copy first, or delete
 its ticket files and let the sync pull them.
 
+A linked worktree is not a checkout of its own here: it syncs the main
+checkout's `.scratch/`, and a ticket written under the worktree's own
+`.scratch/` is never synced. Edit tickets at the path the session-start note
+names.
+
 ## Conflicts
 
 When the file and the issue both changed since the last sync, nothing is

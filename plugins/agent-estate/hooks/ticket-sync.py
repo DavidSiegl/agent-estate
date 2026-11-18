@@ -635,22 +635,43 @@ class Repo:
 # --- Entry points --------------------------------------------------------------
 
 def opted_in(where: Path) -> tuple[Path, str] | None:
-    """Returns the main checkout of the git repo containing directory where and
-    the GitHub repo it syncs with, or None when it is not a repo that opted in
-    or has no main checkout (a bare repo's worktrees). From a linked worktree
-    that is the checkout the worktree was added to: agent.ticketSync is in the
-    config they share, and .scratch/ is not, so syncing the worktree's own would
-    restore every open ticket into it."""
+    """Returns the checkout whose .scratch/ the git repo containing directory
+    where syncs, and the GitHub repo it syncs with; None when it is not a repo
+    that opted in, or a linked worktree whose main checkout is unknown (a bare
+    repo's, or one whose git dir does not record its checkout).
+
+    That checkout is the repo's toplevel, except in a linked worktree, where it
+    is the main checkout: agent.ticketSync is in the config they share and
+    .scratch/ is not, so syncing the worktree's own would restore every open
+    ticket into it."""
     def git(*args):
         p = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True)
-        return p.stdout.strip() if p.returncode == 0 else None
-    # The first entry is the main worktree, which is the repo itself when bare.
-    listing = git("worktree", "list", "--porcelain")
-    main = listing and listing.split("\n\n")[0].split("\n")
+        return p.stdout.removesuffix("\n") if p.returncode == 0 else None
+    root = git("rev-parse", "--show-toplevel")
+    repo = root and git("config", "--get", "agent.ticketSync")
+    if not repo:
+        return None
+    # One call each, since a path may hold a newline.
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if common is None:
+        return None
+    if git("rev-parse", "--path-format=absolute", "--git-dir") == common:
+        return Path(root), repo
+    # A linked worktree. The listing's first entry is the main worktree: the
+    # checkout, or the git dir itself when git does not know the checkout (a
+    # bare repo, a submodule, --separate-git-dir), where core.worktree, set
+    # for a submodule, names it relative to the git dir.
+    listing = git("worktree", "list", "--porcelain", "-z")
+    main = listing.split("\0\0")[0].split("\0") if listing else []
     if not main or not main[0].startswith("worktree ") or "bare" in main:
         return None
-    repo = git("config", "--get", "agent.ticketSync")
-    return (Path(main[0].removeprefix("worktree ")), repo) if repo else None
+    checkout = Path(main[0].removeprefix("worktree "))
+    if checkout == Path(common):
+        named = git("--git-dir", common, "config", "--get", "core.worktree")
+        if not named:
+            return None
+        checkout = (Path(common) / named).resolve()
+    return checkout, repo
 
 
 def read_or_none(path: Path) -> str | None:
@@ -686,7 +707,7 @@ def hook() -> None:
                 repo.load_all()
                 changed, problems = repo.sync_all()
                 if changed:
-                    notes.append(f"ticket-sync synced .scratch/ tickets with GitHub {found[1]}:\n"
+                    notes.append(f"ticket-sync synced {found[0] / '.scratch'} tickets with GitHub {found[1]}:\n"
                                  + "\n".join(changed))
                 notes += problems
             elif (tid := repo.ticket_id(target)) is not None:
