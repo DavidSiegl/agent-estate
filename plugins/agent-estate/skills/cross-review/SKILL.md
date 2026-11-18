@@ -285,7 +285,8 @@ towards the three.
 
 `${CLAUDE_PLUGIN_ROOT}/hooks/git/pre-push` refuses a push, from a repo with a
 `.scratch/reviews/` directory, that would update a ref to a commit no record
-carries `Verdict: pass` for. It is a git hook, so it sees exactly the refs git
+carries `Verdict: pass` for, unless the remote already has that commit (a release
+tag on the merge GitHub made, say). It is a git hook, so it sees exactly the refs git
 is about to update, however the command was written. Only Claude's commands run
 it: the plugin's SessionStart hook `git-hooks-path.sh` sets `core.hooksPath` to
 `${CLAUDE_PLUGIN_ROOT}/hooks/git` for the commands Claude runs, and `passthrough` there runs the repo's own hooks, from wherever the

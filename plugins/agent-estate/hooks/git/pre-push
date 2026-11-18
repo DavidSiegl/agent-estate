@@ -20,7 +20,12 @@ PreToolUse guard ../no-verify-push.sh refuses Claude's commands that pass it.
 The records are the .scratch/reviews/ of the main checkout and of the checkout
 the push runs in: .scratch/ is gitignored, so it lives in whichever checkout
 created it. A deletion, or a ref whose object is no commit (a tag of a tree),
-sends no commit and is not checked.
+sends no commit and is not checked. Nor is a commit the remote already has, by
+the push's remote-tracking refs (refs/remotes/<remote>/*): pushing it sends
+nothing new, as with a release tag on the merge commit GitHub made for a
+reviewed pull request. A push to a URL rather than a named remote has no such
+refs, so all its commits are checked. The tracking refs are local and could be
+pointed anywhere; like the records, they are trusted, not verified.
 
 `REVIEW_GATE=off git push ...` skips the gate; that is the user's to type.
 
@@ -79,12 +84,19 @@ def records(reviews: list[str]) -> tuple[list[str], list[str]]:
     return passed, summary
 
 
-def check(updates: str) -> Refusal | None:
+def on_remote(sha: str, remote: str) -> bool:
+    """Whether commit sha is reachable from a remote-tracking ref of remote;
+    False when git cannot tell."""
+    return bool(git("for-each-ref", "--contains", sha, "--format=%(refname)", f"refs/remotes/{remote}/"))
+
+
+def check(updates: str, remote: str) -> Refusal | None:
     """The Refusal for the push whose ref updates git gave on stdin, or None
     when it may go ahead.
 
     updates: git's pre-push input, one `<local ref> <local sha> <remote ref>
     <remote sha>` line per ref the push updates (githooks(5), "pre-push").
+    remote: the remote's name as git passes it, or its URL for a push to a URL.
     """
     root = git("rev-parse", "--show-toplevel")
     common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
@@ -101,7 +113,7 @@ def check(updates: str) -> Refusal | None:
         if len(words) != 4 or _ZERO.fullmatch(words[1]):
             continue
         sha = git("rev-parse", "--verify", "-q", words[1] + "^{commit}")
-        if sha:
+        if sha and not on_remote(sha, remote):
             pushed.append((sha, words[0]))
     passed, summary = records(reviews)
     # Prefix comparison both ways, so a record may carry a short sha.
@@ -150,7 +162,7 @@ def main(argv: list[str]) -> int:
     updates = sys.stdin.read()
     if os.environ.get("REVIEW_GATE") != "off":
         try:
-            refusal = check(updates)
+            refusal = check(updates, argv[1])
         except Exception as err:  # the gate's own failure must not block the push
             print(f"review gate: allowing the push, the gate itself failed: {err!r}", file=sys.stderr)
             refusal = None
