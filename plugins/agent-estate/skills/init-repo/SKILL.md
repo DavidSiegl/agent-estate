@@ -55,7 +55,9 @@ uvx copier update --trust --defaults -d review_gate=false   # change one answer
 
 Both copy and update take the newest `vX.Y.Z` tag, not `main`: template work merged since the last tag
 reaches no repo until it is tagged (the README's "Changing the template"). A change you just merged into
-the template and want in a repo now is a tag for the user to push, or `--vcs-ref=<sha>` for a trial.
+the template and want in a repo now is a tag for the user to push. `--vcs-ref=<sha>` is for a trial on a
+scratch copy only, never committed: the repo's next plain update would refuse to "downgrade" from that
+sha to the newest tag until a later one exists.
 
 Copier three-way merges template changes into the files it rendered; a conflict shows as
 inline markers (or `.rej` files) to resolve before committing.

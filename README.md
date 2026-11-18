@@ -40,7 +40,10 @@ uvx copier update --trust -d tracker=github   # change an answer
 ```
 
 `copier update` moves to the newest `vX.Y.Z` tag, not to `main`, so template work merged since the last release
-reaches no repo until it is tagged (see "Changing the template"). `--vcs-ref=<sha or tag>` picks another commit.
+reaches no repo until it is tagged (see "Changing the template"). `--vcs-ref=<sha or tag>` picks another commit;
+for a sha past the newest tag, use it on a scratch copy and discard it, never commit the result: Copier records that
+sha as a newer version than the tag, so the repo's next plain `copier update` refuses it as a downgrade until a later
+tag exists.
 
 The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits, except a
 repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns

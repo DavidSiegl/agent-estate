@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Runs actionlint over this repo's .github/workflows/ and over the workflows the template
 # renders (gate.yml, automerge.yml) for every combination of the answers they depend on: ci,
-# gate (python or own), release and automerge. Exits 1 when actionlint reports anything or a
-# render fails, naming the combination; 0 when all are clean. The CI workflow Tests runs it.
+# gate (python or own), release and automerge; and checks that .github/workflows/tests.yml
+# installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
+# anything, a render fails or the pins differ, naming which; 0 when all are clean. The CI
+# workflow Tests runs it.
 #
 #     tests/lint-workflows
 #
@@ -17,6 +19,16 @@ tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
 
 failed=()
+# The Tests workflow installs the actionlint the template's gate.yml pins, so that the
+# rendered workflows are linted by the version they will run.
+echo "== actionlint pin"
+pins() { grep -E '^ *(version|sha256)=' "$1" | sed 's/^ *//'; }
+template_gate=$(find "$root/template" -name '*gate.yml*.jinja') || exit 1
+if [ "$(pins "$root/.github/workflows/tests.yml")" != "$(pins "$template_gate")" ] || [ -z "$(pins "$template_gate")" ]; then
+    echo "tests.yml and the template's gate.yml pin different actionlint versions or checksums" >&2
+    failed+=("actionlint pin")
+fi
+
 echo "== .github/workflows"
 actionlint "$root"/.github/workflows/*.yml || failed+=(".github/workflows")
 

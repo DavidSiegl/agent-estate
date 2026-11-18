@@ -20,8 +20,9 @@ there. The steps:
   only ever added.
 - CLAUDE.md gets an `@docs/agents/README.md` import line, and AGENTS.md, which other
   tools read and which has no imports, a line telling the reader to read that file. Each
-  file's own text stays the repo's: the line is appended when absent, and a missing file
-  is created holding only a title and the line. An AGENTS.md that is a symlink (usually
+  file's own text stays the repo's: the line is appended only when the file names no
+  such pointer (CLAUDE.md the import, AGENTS.md docs/agents/README.md, in any wording),
+  and a missing file is created holding only a title and the line. An AGENTS.md that is a symlink (usually
   to CLAUDE.md) is left alone, since appending would write through it.
 - `git config agent.ticketSync` is set to OWNER/NAME when ticket sync is on, unset when
   off. Setting it publishes every open .scratch/ ticket on the next sync (ticket-sync).
@@ -58,9 +59,11 @@ GATE_OUTPUTS = {
     "none": [],
 }
 # The lines that point CLAUDE.md and AGENTS.md at docs/agents/README.md: an import for
-# Claude Code, prose for the tools that read AGENTS.md.
-CLAUDE_IMPORT = "@docs/agents/README.md"
-AGENTS_POINTER = "Read docs/agents/README.md: this repo's issue tracker, review gate and quality gate."
+# Claude Code, prose for the tools that read AGENTS.md. Each is found again by what it
+# points at, not by its wording (ensure_pointer), so the prose may be reworded freely.
+AGENTS_DOC = "docs/agents/README.md"
+CLAUDE_IMPORT = f"@{AGENTS_DOC}"
+AGENTS_POINTER = f"Read {AGENTS_DOC}: this repo's issue tracker, review gate and quality gate."
 
 # Label, colour and description of the label that keeps auto-merge off a pull request.
 HOLD_LABEL = ("no-automerge", "b60205", "Auto-merge leaves this pull request for a human")
@@ -102,19 +105,21 @@ def ensure_lines(path: Path, comment: str, lines: list[str]) -> None:
     print(f"{path.name}: added {', '.join(missing)}")
 
 
-def ensure_pointer(path: Path, pointer: str) -> None:
-    """Make the file at path, in the repo's root, hold pointer as a line of its own: appended
-    after a blank line when no line equals it, or, when the file is missing, a new file
-    holding the repo's name as its title and pointer. Raises OSError when it cannot."""
+def ensure_pointer(path: Path, pointer: str, mention: str) -> None:
+    """Make the file at path, in the repo's root, point its reader at AGENTS_DOC. It already
+    does when its text contains mention (CLAUDE_IMPORT or AGENTS_DOC), so an older or
+    hand-edited wording counts; else pointer, a line, is appended after a blank line, or,
+    when the file is missing, it is created holding the repo's name as its title and
+    pointer. Raises OSError when it cannot."""
     if not path.exists():
         path.write_text(f"# {path.parent.name}\n\n{pointer}\n", encoding="utf-8")
-        print(f"{path.name}: created, pointing at docs/agents/README.md")
+        print(f"{path.name}: created, pointing at {AGENTS_DOC}")
         return
     text = path.read_text(encoding="utf-8")
-    if pointer in (line.strip() for line in text.splitlines()):
+    if mention in text:
         return
     path.write_text(text.rstrip("\n") + f"\n\n{pointer}\n", encoding="utf-8")
-    print(f"{path.name}: added the pointer to docs/agents/README.md")
+    print(f"{path.name}: added the pointer to {AGENTS_DOC}")
 
 
 def ensure_ticket_sync(repo: str | None) -> None:
@@ -200,9 +205,9 @@ def main() -> int:
             ensure_lines(root / ".gitignore", "The tracker's specs, tickets and review records", ignores)
         if GATE_OUTPUTS[a.gate]:
             ensure_lines(root / ".gitignore", "What scripts/gate writes", GATE_OUTPUTS[a.gate])
-        ensure_pointer(root / "CLAUDE.md", CLAUDE_IMPORT)
+        ensure_pointer(root / "CLAUDE.md", CLAUDE_IMPORT, CLAUDE_IMPORT)
         if not (root / "AGENTS.md").is_symlink():
-            ensure_pointer(root / "AGENTS.md", AGENTS_POINTER)
+            ensure_pointer(root / "AGENTS.md", AGENTS_POINTER, AGENTS_DOC)
         ensure_ticket_sync(a.repo if ticket_sync else None)
         ensure_review_gate(root, review_gate)
         if a.python_package:
