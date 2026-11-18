@@ -94,8 +94,9 @@ reasons):
 
 With `release`, a merge into `main` whose version has no GitHub release yet is released as `v<version>` by
 `scripts/release publish`, and CI's Version stage (Jenkins) or step (GitHub Actions) fails a pull request into `main`
-that changes a released path without raising the version; auto-merge checks that again right before merging, so a
-pull request overtaken by another that raised to the same version is held. The version is read from the first of
+that changes a released path without raising the version. The `ci-cd` ruleset merges only a pull request up to date
+with `main`, and auto-merge updates one that is behind, so a pull request overtaken by another that raised to the
+same version fails that check on its new head and is not merged. The version is read from the first of
 `pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one. `scripts/release`'s header is the rule:
 which file, which paths are exempt, and how versions compare.
 

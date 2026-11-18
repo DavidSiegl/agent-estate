@@ -5,7 +5,7 @@
 - **`scripts/release raised` names the target two ways in its failures.** Review 06, F6: "`exempt_at` and
   `version_at` print their argument, so the messages now read 'no commit refs/remotes/origin/main', 'cannot read
   .release-exempt at refs/remotes/origin/main' and 'no release version at refs/remotes/origin/main: …'. The rest of
-  `raised` says 'main'." Accurate, but it reads inconsistently in auto-merge's comments and Jenkins logs. Closes when
+  `raised` says 'main'." Accurate, but it reads inconsistently in CI's logs. Closes when
   those helpers' messages name what the caller calls the commit, if that costs less than the parameter it seems to
   need.
 

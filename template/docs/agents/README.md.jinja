@@ -101,7 +101,8 @@ The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.j
   the bump and its level as an acceptance criterion: `patch` for a fix, `minor` for a new feature or flag, `major` for
   a change that breaks what users rely on. {% if ci == 'jenkins' %}Jenkins's Version stage{% else %}The Gate workflow{% endif %} fails a pull request that doesn't.
 {%- if automerge %}
-  Auto-merge checks it again against `main` as it is when merging.
+  Auto-merge brings a pull request that is behind `main` up to date first, so the check runs again against `main` as
+  it is when merging.
 {%- endif %}
 - While the version is 0.x, a breaking change bumps `minor`: `major` would make it 1.0.0, a deliberate release
   decision rather than a side effect of a change.

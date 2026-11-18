@@ -6,13 +6,14 @@
 # and ruff's configuration, uv.lock), and not to loosen the check of every later one by
 # changing those files or this workflow on main. Held for a human: drafts, and pull
 # requests labelled no-automerge, from forks, or into another branch.
-{%- if release %}
 #
-# Also held, with a comment saying why: a pull request that no longer raises the release
-# version over main's as main is now (scripts/release raised, run from main's copy), as when
-# another pull request raising to the same version merged after this one was built; merged,
-# it would go unreleased. Two runs at the same moment can still both pass this check.
-{%- endif %}
+# A pull request behind main is brought up to date instead (GitHub's update-branch merges
+# main into it), and CI's check of its new head decides, as for any push. The ci-cd ruleset
+# requires that check on a head up to date with main (init/github-rules.py), so of two pull
+# requests that passed at the same moment GitHub merges only the first and refuses the
+# second, which auto-merge then updates{% if release %}: should both raise to the same version, the
+# second's new run fails CI's Version check, so it never merges to go unreleased{% endif %}. A pull
+# request that conflicts with main fails the run and waits for a human.
 #
 # GitHub runs this from main's copy for {% if ci == 'jenkins' %}status{% else %}workflow_run{% endif %} events, so a pull request cannot change
 # these rules for itself. {% if ci == 'jenkins' %}It trusts a success only from Jenkins's GitHub App
@@ -21,7 +22,8 @@
 # It acts with AUTOMERGE_TOKEN, a fine-grained personal access token of the repository's
 # owner limited to this repository, with contents, pull requests and workflows read and
 # write. Not github.token: GitHub refuses that token a merge that changes .github/workflows/,
-# and starts no workflow for the push to main that a merge made with it makes. When the
+# and starts no workflow for a push made with it: neither the merge's to main nor an
+# update's to a pull request's branch. When the
 # secret is missing or the token has expired, every run fails at its first gh call and
 # pull requests wait for a human until it is replaced.
 name: Auto-merge
@@ -53,32 +55,23 @@ jobs:
     # No concurrency group: one would cancel a queued run when a third arrives, leaving a
     # passed pull request unmerged. gh pr merge --match-head-commit makes parallel runs safe.
     steps:
-{%- if release %}
-      # main, whose scripts/release judges the pull request, with all history for its
-      # merge base.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          token: {% raw %}${{ secrets.AUTOMERGE_TOKEN }}{% endraw %}
-          fetch-depth: 0
-{%- endif %}
       - shell: bash
         env:
           GH_TOKEN: {% raw %}${{ secrets.AUTOMERGE_TOKEN }}{% endraw %}
           GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
           SHA: {% raw %}${{ {% endraw %}{% if ci == 'jenkins' %}github.event.sha{% else %}github.event.workflow_run.head_sha{% endif %}{% raw %} }}{% endraw %}
         run: |
-          # 1 when a pull request may have passed but was not merged: a merge or a lookup failed.
+          # 1 when a pull request may have passed but was neither merged nor updated: a call failed.
           failed=0
+          # The number of commits on main that $SHA does not contain.
+          behind_main() {
+            gh api "repos/$GH_REPO/compare/main...$SHA" --jq .behind_by
+          }
           # Every open pull request whose head is the commit that passed.
           if ! prs=$(gh api "repos/$GH_REPO/commits/$SHA/pulls" --jq '.[] | select(.state == "open") | .number'); then
             echo "::error::could not list the pull requests at $SHA"
             exit 1
           fi
-{%- if release %}
-          # Whether the work tree holds $SHA, with main's scripts/release kept aside to judge it.
-          checked_out=false
-{%- endif %}
           for pr in $prs; do
             if ! fields=$(gh pr view "$pr" \
               --json headRefOid,headRefName,baseRefName,isDraft,isCrossRepository,labels \
@@ -96,42 +89,32 @@ jobs:
               echo "#$pr: held (base $base, draft $draft, fork $fork, no-automerge $held)"
               continue
             fi
-{%- if release %}
-            if [ "$checked_out" = false ]; then
-              if ! { cp scripts/release "$RUNNER_TEMP/release" &&
-                     git fetch --quiet origin "$SHA" && git checkout --quiet --detach "$SHA"; }; then
-                echo "::error::could not check out $SHA to judge its version"
-                exit 1
-              fi
-              checked_out=true
-            fi
-            raised=0
-            why=$(sh "$RUNNER_TEMP/release" raised main 2>&1 >/dev/null) || raised=$?
-            if [ "$raised" = 1 ]; then
-              # One comment per head commit, however often its success is reported.
-              body="Not merged at $SHA, since main moved on after this pull request was built: $why"
-              if ! seen=$(gh api --paginate "repos/$GH_REPO/issues/$pr/comments" --jq '.[].body'); then
-                echo "::error::#$pr: held, but its comments could not be read"
-                failed=1
-              elif ! grep -qF "Not merged at $SHA," <<<"$seen" && ! gh pr comment "$pr" --body "$body"; then
-                echo "::error::#$pr: held, but the comment saying why failed"
-                failed=1
-              fi
-              echo "#$pr: held, its version is not raised over main's: $why"
-              continue
-            elif [ "$raised" != 0 ]; then
-              echo "::error::#$pr: could not judge its version: $why"
+            if ! behind=$(behind_main); then
+              echo "::error::#$pr: could not compare $SHA with main"
               failed=1
               continue
             fi
-{%- endif %}
-            if ! gh pr merge "$pr" --merge --match-head-commit "$SHA"; then
-              echo "::error::#$pr: merge failed"
-              failed=1
+            if [ "$behind" = 0 ]; then
+              if gh pr merge "$pr" --merge --match-head-commit "$SHA"; then
+                echo "#$pr: merged"
+                gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch" ||
+                  echo "::warning::#$pr: merged, but its branch $branch was not deleted"
+                continue
+              fi
+              # The ruleset refuses a merge once main has moved on, as when another pull
+              # request merged since the comparison above: then it needs the update below.
+              if ! behind=$(behind_main) || [ "$behind" = 0 ]; then
+                echo "::error::#$pr: merge failed"
+                failed=1
+                continue
+              fi
+            fi
+            if gh api --method PUT "repos/$GH_REPO/pulls/$pr/update-branch" \
+                 -f expected_head_sha="$SHA" >/dev/null; then
+              echo "#$pr: $behind commits behind main; updated, and the check of its new head decides"
             else
-              echo "#$pr: merged"
-              gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch" ||
-                echo "::warning::#$pr: merged, but its branch $branch was not deleted"
+              echo "::error::#$pr: $behind commits behind main, and updating it failed (a conflict waits for a human)"
+              failed=1
             fi
           done
           exit "$failed"

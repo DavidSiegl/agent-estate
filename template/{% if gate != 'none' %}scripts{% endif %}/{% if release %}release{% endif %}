@@ -14,10 +14,9 @@
 #       than TARGET's, or when the change since their merge base touches only exempt
 #       paths, saying so on standard output; exit 1, saying why on standard error, when
 #       the version is not greater; exit 2 on any error (a git command, a version that
-#       cannot be read). CI's Version stage or step runs it on a pull request into main, and
-#       auto-merge again right before merging, since publish releases a merge into main
-#       only when its version has no release yet, so a merge that kept main's version
-#       would go unreleased.
+#       cannot be read). CI's Version stage or step runs it on a pull request into main,
+#       since publish releases a merge into main only when its version has no release
+#       yet, so a merge that kept main's version would go unreleased.
 #   scripts/release due
 #       Exit 0 when HEAD's release version has no GitHub release yet, 1 when it has one,
 #       saying which on standard output; exit 2 on any error, among them a version below
