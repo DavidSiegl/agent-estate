@@ -35,9 +35,12 @@ Copier asks the questions in `copier.yml` and records the answers in `.copier-an
 ## Updating
 
 ```bash
-uvx copier update --trust              # pick up template changes
+uvx copier update --trust              # move to the latest tagged release
 uvx copier update --trust -d tracker=github   # change an answer
 ```
+
+`copier update` moves to the newest `vX.Y.Z` tag, not to `main`, so template work merged since the last release
+reaches no repo until it is tagged (see "Changing the template"). `--vcs-ref=<sha or tag>` picks another commit.
 
 The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits, except a
 repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns
@@ -152,8 +155,17 @@ Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
 A change to a question goes in `copier.yml` and in the `init-repo` skill's table of answers. Before committing, try
 a change on a scratch repo: `copier copy` with every combination it touches, then `copier update` on a repo created
-from the previous commit, and run `python3 tests/release_test.py` and `python3 tests/gate_test.py`. Tag a release (`git tag vX.Y.Z`) so `copier update` moves between versions rather than
-commits.
+from the previous commit, and run `python3 tests/release_test.py` and `python3 tests/gate_test.py`.
+
+A merged change to `copier.yml`, `template/` or `init/` reaches repos only once it is in a release: a `vX.Y.Z` tag
+on `main`, which `copier update` moves to. Tag when what has merged since the last tag is something you want every
+repo to get on its next update. The number is the template's own and moves independently of the plugin's version in
+`plugin.json`, which ships through the marketplace: raise X when an update needs the repo's owner to act (a question
+renamed or removed, `init/github-rules.py` to run again), Y for a new question or file, Z for a fix.
+
+```bash
+git switch main && git pull && git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z
+```
 
 ## License
 

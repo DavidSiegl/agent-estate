@@ -44,15 +44,18 @@ uvx copier copy --trust --defaults \
 ```
 
 `--trust` is needed because the template runs apply.py. Without `--defaults` Copier asks
-interactively, which a Bash tool call cannot answer. The repo is private, so this needs the
-user's GitHub credentials for git (`gh auth setup-git`).
+interactively, which a Bash tool call cannot answer.
 
 To bring a repo up to date with the template, or to change an answer:
 
 ```bash
-uvx copier update --trust --defaults                 # same answers, newer template
+uvx copier update --trust --defaults                 # same answers, latest release
 uvx copier update --trust --defaults -d review_gate=false   # change one answer
 ```
+
+Both copy and update take the newest `vX.Y.Z` tag, not `main`: template work merged since the last tag
+reaches no repo until it is tagged (the README's "Changing the template"). A change you just merged into
+the template and want in a repo now is a tag for the user to push, or `--vcs-ref=<sha>` for a trial.
 
 Copier three-way merges template changes into the files it rendered; a conflict shows as
 inline markers (or `.rej` files) to resolve before committing.
