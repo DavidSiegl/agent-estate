@@ -90,9 +90,13 @@ jenkins_status_login:
   type: str
   help: GitHub login Jenkins's GitHub App posts statuses as ("<app-slug>[bot]")
   # No default: each Jenkins has its own App, and a wrong login makes auto-merge trust nobody's status, or
-  # someone else's. Copier refuses --defaults without an answer ("Question ... is required").
+  # someone else's. Copier refuses --defaults without an answer ("Question ... is required"). The login is
+  # rendered into a single-quoted expression in automerge.yml, so the validator admits only a slug's characters.
   when: "{{ ci == 'jenkins' }}"
-  validator: "{% if ci == 'jenkins' and not jenkins_status_login.endswith('[bot]') %}An App posts as <slug>[bot]{% endif %}"
+  validator: >-
+    {% if ci == 'jenkins' and not (jenkins_status_login.endswith('[bot]') and jenkins_status_login[:-5]
+    and not jenkins_status_login[:-5].strip('abcdefghijklmnopqrstuvwxyz0123456789-')) %}An App posts as
+    <slug>[bot], the slug in lowercase letters, digits and -{% endif %}
 
 jenkins_notify_email:
   type: str
@@ -121,5 +125,9 @@ release:
 jenkins_release_credential:
   type: str
   help: Jenkins string credential holding a GitHub token that may create releases on the repo
-  default: GitHub-Agents
+  # No default, as for jenkins_status_login: the id names a credential in your own Jenkins. It is rendered into
+  # single-quoted Groovy strings in the Jenkinsfile, which a ' or \ would break.
   when: "{{ release and ci == 'jenkins' }}"
+  validator: >-
+    {% if release and ci == 'jenkins' and ("'" in jenkins_release_credential or '\\' in jenkins_release_credential)
+    %}Give a credential id without ' or \{% endif %}

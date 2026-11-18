@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Runs actionlint over this repo's .github/workflows/ and over the workflows the template
 # renders (gate.yml, automerge.yml) for every combination of the answers they depend on: ci,
-# gate (python or own), release and automerge; and checks that .github/workflows/tests.yml
+# gate (python or own), release, automerge and, for Jenkins, jenkins_status_login; checks that a
+# Jenkins render with neither jenkins_status_login nor jenkins_release_credential fails, since
+# both name the user's own Jenkins and have no default; and checks that .github/workflows/tests.yml
 # installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
 # anything, a render fails or the pins differ, naming which; 0 when all are clean. The CI
 # workflow Tests runs it.
@@ -32,7 +34,8 @@ fi
 echo "== .github/workflows"
 actionlint "$root"/.github/workflows/*.yml || failed+=(".github/workflows")
 
-# The answers that change a rendered workflow; the others take their defaults.
+# The answers that change a rendered workflow, and the Jenkins ones without a default; the
+# others take their defaults.
 combos=()
 for gate in python own; do
     for release in false true; do
@@ -41,8 +44,8 @@ for gate in python own; do
         done
     done
 done
-combos+=("ci=jenkins jenkins_status_login=ci[bot] gate=own release=false automerge=true"
-        "ci=jenkins jenkins_status_login=ci[bot] gate=own release=true automerge=true")
+jenkins="ci=jenkins jenkins_status_login=ci[bot] jenkins_release_credential=ci gate=own automerge=true"
+combos+=("$jenkins release=false" "$jenkins release=true")
 
 for combo in "${combos[@]}"; do
     echo "== $combo"
@@ -58,6 +61,12 @@ for combo in "${combos[@]}"; do
     fi
     actionlint "$dst"/.github/workflows/*.yml || failed+=("$combo")
 done
+
+echo "== ci=jenkins release=true without its answers (must fail)"
+if uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD -d repo=o/n \
+    -d ci=jenkins -d gate=own -d release=true "$root" "$tmp/jenkins-unanswered" 2>/dev/null; then
+    failed+=("Jenkins render without jenkins_status_login or jenkins_release_credential")
+fi
 
 if [ ${#failed[@]} -gt 0 ]; then
     printf 'tests/lint-workflows: failed: %s\n' "${failed[@]}" >&2

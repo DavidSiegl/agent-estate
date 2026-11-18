@@ -1,6 +1,6 @@
 # Merges a pull request into main, with a merge commit, once the quality gate has passed
 # on its head commit, so a pull request lands without a human. Any file may change, as in
-# octoflow-ai's auto-merge (decided by the owner on 2026-11-05). So an agent's pull request
+# octoflow-ai's auto-merge (decided by agent-estate's owner on 2026-11-05). So an agent's pull request
 # is trusted not to loosen its own check, which CI runs from the pull request's own copy of
 # the files that configure it (CI's files, scripts/gate,{% if release %} scripts/release,{% endif %} conftest.py, pytest's,
 # coverage's and ruff's configuration, uv.lock), and not to loosen the check of every later one by
