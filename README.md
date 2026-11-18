@@ -12,10 +12,11 @@ Jenkins credential it releases with, have no defaults.
   docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger and todo-tickets,
-  readme-sync, unslop, stale-worktrees, make-pr-easy-to-review, teach, how, why, babysit, fix-ci, get-pr-comments, automate-me, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
+  readme-sync, unslop, trunk-based, make-pr-easy-to-review, teach, how, why, babysit, fix-ci, get-pr-comments, automate-me, deep-modules, design-it-twice, external-edits, handover and more), the `init-repo` skill that runs the
   template, the `chore` agent in `agents/`, which takes fully specified work (run the tests, apply a given edit) on
   Sonnet instead of the session's model, and the hooks in `hooks/hooks.json`: the review gate's pre-push hook and the guard that keeps a push from
-  skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
+  skipping it, ticket-sync, the cleanup of merged branches and worktrees in repos with `agent.trunkBased` set
+  (`hooks/trunk-cleanup.py`'s docstring has the rule), the README check that refuses a pull request into `main` changing what the README names
   without the README (`hooks/readme-sync.py`'s docstring has the rule), the version check that refuses one changing
   a plugin without raising the `version` in its `.claude-plugin/plugin.json`, without which installs never load the
   change (`hooks/plugin-version.py`'s docstring has the rule; `.github/workflows/plugin-version.yml` runs the same
