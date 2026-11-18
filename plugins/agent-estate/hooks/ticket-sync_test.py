@@ -117,8 +117,8 @@ class TicketSync(unittest.TestCase):
         return subprocess.run([str(SYNC), *args], cwd=self.root, env=self.env,
                               capture_output=True, text=True)
 
-    def hook(self, event, path=None):
-        payload = {"hook_event_name": event, "cwd": str(self.root)}
+    def hook(self, event, path=None, cwd=None):
+        payload = {"hook_event_name": event, "cwd": str(cwd or self.root)}
         if path:
             payload |= {"tool_name": "Read" if event == "PreToolUse" else "Write",
                         "tool_input": {"file_path": str(path)}}
@@ -142,6 +142,18 @@ class TicketSync(unittest.TestCase):
         self.assertEqual(self.hook("SessionStart"), "")
         self.assertEqual(self.run_sync().returncode, 1)
         self.assertEqual(self.calls(), 0)
+
+    def test_a_linked_worktree_syncs_the_main_checkouts_tickets(self):
+        self.opt_in_and_sync()
+        wt = Path(self.tmp.name) / "wt"
+        git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=self.env)
+        subprocess.run([*git, "worktree", "add", "-q", str(wt)], check=True, env=self.env)
+        self.change(1, title="[feat/01] Renamed on GitHub")
+        note = self.hook("SessionStart", cwd=wt)
+        self.assertIn("feat/01", note)
+        self.assertIn("# Renamed on GitHub", self.t1.read_text())
+        self.assertFalse((wt / ".scratch").exists(), "nothing is restored into the worktree")
 
     def test_push_creates_issues(self):
         self.opt_in_and_sync()

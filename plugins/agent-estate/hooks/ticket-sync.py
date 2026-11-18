@@ -14,7 +14,8 @@
 A repo opts in with `git config agent.ticketSync <owner/name>`, naming the GitHub
 repo its issues live in. Without it nothing is synced: syncing publishes
 `.scratch/`, which is otherwise private. Every checkout that syncs a repo must
-use the same gh user: the sync only ever works on that user's issues.
+use the same gh user: the sync only ever works on that user's issues. A linked
+worktree syncs the main checkout's `.scratch/`, never its own (opted_in).
 
 Tickets are `.scratch/<feature>/issues/<NN>-<slug>.md` (see the
 scratch-issue-tracker skill); spec.md, map.md and reviews/ are never synced. A
@@ -634,14 +635,22 @@ class Repo:
 # --- Entry points --------------------------------------------------------------
 
 def opted_in(where: Path) -> tuple[Path, str] | None:
-    """Returns the toplevel of the git repo containing directory where and the
-    GitHub repo it syncs with, or None when it is not a repo that opted in."""
+    """Returns the main checkout of the git repo containing directory where and
+    the GitHub repo it syncs with, or None when it is not a repo that opted in
+    or has no main checkout (a bare repo's worktrees). From a linked worktree
+    that is the checkout the worktree was added to: agent.ticketSync is in the
+    config they share, and .scratch/ is not, so syncing the worktree's own would
+    restore every open ticket into it."""
     def git(*args):
         p = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True)
         return p.stdout.strip() if p.returncode == 0 else None
-    root = git("rev-parse", "--show-toplevel")
-    repo = root and git("config", "--get", "agent.ticketSync")
-    return (Path(root), repo) if repo else None
+    # The first entry is the main worktree, which is the repo itself when bare.
+    listing = git("worktree", "list", "--porcelain")
+    main = listing and listing.split("\n\n")[0].split("\n")
+    if not main or not main[0].startswith("worktree ") or "bare" in main:
+        return None
+    repo = git("config", "--get", "agent.ticketSync")
+    return (Path(main[0].removeprefix("worktree ")), repo) if repo else None
 
 
 def read_or_none(path: Path) -> str | None:
