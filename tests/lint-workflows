@@ -2,9 +2,9 @@
 # Runs actionlint over this repo's .github/workflows/ and over the workflows the template
 # renders (gate.yml, automerge.yml) for every combination of the answers they depend on: ci,
 # gate (python or own), release, automerge and, for Jenkins, jenkins_status_login; checks that a
-# Jenkins render with neither jenkins_status_login nor jenkins_release_credential fails, since
-# both name the user's own Jenkins and have no default; and checks that .github/workflows/tests.yml
-# installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
+# Jenkins render without jenkins_status_login fails, and one with release but without
+# jenkins_release_credential, since both name the user's own Jenkins and have no default; and
+# checks that .github/workflows/tests.yml installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
 # anything, a render fails or the pins differ, naming which; 0 when all are clean. The CI
 # workflow Tests runs it.
 #
@@ -62,11 +62,23 @@ for combo in "${combos[@]}"; do
     actionlint "$dst"/.github/workflows/*.yml || failed+=("$combo")
 done
 
-echo "== ci=jenkins release=true without its answers (must fail)"
-if uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD -d repo=o/n \
-    -d ci=jenkins -d gate=own -d release=true "$root" "$tmp/jenkins-unanswered" 2>/dev/null; then
-    failed+=("Jenkins render without jenkins_status_login or jenkins_release_credential")
-fi
+# Each render leaves out one of them and gives every other answer it would ask for, so only
+# that answer's missing default can make it fail.
+unanswered=(
+    "jenkins_status_login|ci=jenkins gate=own release=false"
+    "jenkins_release_credential|ci=jenkins jenkins_status_login=ci[bot] gate=own release=true"
+)
+for case in "${unanswered[@]}"; do
+    question=${case%%|*}
+    echo "== ci=jenkins without $question (must fail)"
+    read -ra answers <<<"${case#*|}"
+    args=()
+    for answer in "${answers[@]}"; do args+=(-d "$answer"); done
+    if uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD -d repo=o/n \
+        "${args[@]}" "$root" "$tmp/without-$question" 2>/dev/null; then
+        failed+=("Jenkins render without $question")
+    fi
+done
 
 if [ ${#failed[@]} -gt 0 ]; then
     printf 'tests/lint-workflows: failed: %s\n' "${failed[@]}" >&2

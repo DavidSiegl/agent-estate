@@ -129,5 +129,5 @@ jenkins_release_credential:
   # single-quoted Groovy strings in the Jenkinsfile, which a ' or \ would break.
   when: "{{ release and ci == 'jenkins' }}"
   validator: >-
-    {% if release and ci == 'jenkins' and ("'" in jenkins_release_credential or '\\' in jenkins_release_credential)
-    %}Give a credential id without ' or \{% endif %}
+    {% if release and ci == 'jenkins' and (not jenkins_release_credential or "'" in jenkins_release_credential
+    or '\\' in jenkins_release_credential) %}Give a credential id, without ' or \{% endif %}
