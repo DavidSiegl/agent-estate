@@ -1,7 +1,8 @@
 # agent-estate
 
-The agent setup I give my repos, kept in one place so it can be applied to a new repo and updated across all of
-them.
+An agent setup for git repos, kept in one place so it can be applied to a new repo and updated across all of
+them. Answers that depend on your own infrastructure, such as the GitHub App Jenkins posts as,
+have no defaults.
 
 - **`copier.yml`, `template/`, `init/`**: a [Copier](https://copier.readthedocs.io/) template for the per-repo part:
   the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for a
@@ -59,7 +60,10 @@ behind `main`, and without that two pull requests that pass at the same moment c
 
 `gate` picks the quality gate: `python`, octoflow-ai's, for a uv-managed Python project; `own`, a starter
 `scripts/gate` whose header is the contract CI relies on (exit 0, 1 or 2 on a change since BASE), for the repo to fill
-with its own checks in any language; or `none`, which also leaves out CI.
+with its own checks in any language; or `none`, which also leaves out CI. The `python` gate depends on a third
+party: its `scripts/gate` downloads `gate.py` from [DavidSiegl/octoflow-ai](https://github.com/DavidSiegl/octoflow-ai)
+at a pinned commit and checks it against a pinned SHA-256, so it runs only what that commit holds; choose `own` to
+depend on nothing outside the repo.
 
 With `ci` set, pull requests run `scripts/gate` in CI; with `automerge`, `.github/workflows/automerge.yml` merges one
 into `main` once CI passed on its head commit (the generated `docs/agents/README.md` says what holds one back). It
@@ -80,9 +84,12 @@ Once CI reports on pull requests, protect `main` with the `ci-cd` ruleset (needs
 write on the repo; the docstring says what it sets):
 
 ```bash
-init/github-rules.py OWNER/NAME --check continuous-integration/jenkins/pr-head --app-id 5456635   # Jenkins
-init/github-rules.py OWNER/NAME --check gate --app-id 15368                                       # GitHub Actions
+init/github-rules.py OWNER/NAME --check continuous-integration/jenkins/pr-head --app-id APP_ID   # Jenkins
+init/github-rules.py OWNER/NAME --check gate --app-id 15368                                      # GitHub Actions
 ```
+
+APP_ID is the id of the GitHub App Jenkins posts statuses with, shown on the App's settings page; 15368 is GitHub
+Actions' own.
 
 ### Jenkins
 
@@ -92,7 +99,8 @@ reasons):
 - a **Multibranch Pipeline** job on the repo, "Discover branches" set to exclude branches that are also filed as
   PRs, and "Discover pull requests from origin" building the pull request's head, so the status is `pr-head`;
 - a **GitHub App credential** as the checkout credential, the App installed on the repo with Contents: read, Pull
-  requests: read and Commit statuses: read and write. Its login is the `jenkins_status_login` answer;
+  requests: read and Commit statuses: read and write. Its login is the `jenkins_status_login` answer, which has no
+  default;
   auto-merge trusts statuses from that login only. Keep the credential in the job's folder store, not the global one;
 - an **agent labelled `jenkins_agent_label`** (default `untrusted`) that holds nothing an agent should not have,
   restricted per node with the Job Restrictions plugin, with `git` and what `scripts/gate` needs on it (for

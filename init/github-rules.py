@@ -6,8 +6,8 @@ once CI's check passed.
 
 CONTEXT is the status or check CI reports on a pull request: `continuous-integration/jenkins/pr-head` for the
 template's Jenkins job, `gate` for its GitHub Actions workflow. ID is the GitHub App the check must come from, so
-that a status posted with anyone else's token does not count: Jenkins's own App (davidsiegl-jenkins is 5456635),
-or GitHub Actions, 15368. Without it, any source satisfies the check.
+that a status posted with anyone else's token does not count: the id of the GitHub App your Jenkins posts statuses
+with (its settings page shows it), or GitHub Actions, 15368. Without it, any source satisfies the check.
 
 The ruleset, as octoflow-ai's: no deleting or force-pushing the default branch, a pull request for every change
 (no approvals required), and CONTEXT passing on its head, which must be up to date with the default branch

@@ -89,7 +89,8 @@ jenkins_agent_label:
 jenkins_status_login:
   type: str
   help: GitHub login Jenkins's GitHub App posts statuses as ("<app-slug>[bot]")
-  default: davidsiegl-jenkins[bot]
+  # No default: each Jenkins has its own App, and a wrong login makes auto-merge trust nobody's status, or
+  # someone else's. Copier refuses --defaults without an answer ("Question ... is required").
   when: "{{ ci == 'jenkins' }}"
   validator: "{% if ci == 'jenkins' and not jenkins_status_login.endswith('[bot]') %}An App posts as <slug>[bot]{% endif %}"
 

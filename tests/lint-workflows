@@ -41,13 +41,16 @@ for gate in python own; do
         done
     done
 done
-combos+=("ci=jenkins gate=own release=false automerge=true" "ci=jenkins gate=own release=true automerge=true")
+combos+=("ci=jenkins jenkins_status_login=ci[bot] gate=own release=false automerge=true"
+        "ci=jenkins jenkins_status_login=ci[bot] gate=own release=true automerge=true")
 
 for combo in "${combos[@]}"; do
     echo "== $combo"
     dst="$tmp/${combo// /_}"
+    # read, not an unquoted $combo: a [bot] in an answer would be taken as a glob.
+    read -ra answers <<<"$combo"
     args=()
-    for answer in $combo; do args+=(-d "$answer"); done
+    for answer in "${answers[@]}"; do args+=(-d "$answer"); done
     if ! uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD \
         -d repo=o/n -d python_package=pkg "${args[@]}" "$root" "$dst"; then
         failed+=("$combo (render)")
