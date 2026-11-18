@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Runs actionlint over this repo's .github/workflows/ and over the workflows the template
 # renders (gate.yml, automerge.yml) for every combination of the answers they depend on: ci,
-# gate (python or own), release and automerge; and checks that .github/workflows/tests.yml
-# installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
+# gate (python or own), release, automerge and, for Jenkins, jenkins_status_login; checks that a
+# Jenkins render without jenkins_status_login fails, and one with release but without
+# jenkins_release_credential, since both name the user's own Jenkins and have no default; and
+# checks that .github/workflows/tests.yml installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
 # anything, a render fails or the pins differ, naming which; 0 when all are clean. The CI
 # workflow Tests runs it.
 #
@@ -32,7 +34,8 @@ fi
 echo "== .github/workflows"
 actionlint "$root"/.github/workflows/*.yml || failed+=(".github/workflows")
 
-# The answers that change a rendered workflow; the others take their defaults.
+# The answers that change a rendered workflow, and the Jenkins ones without a default; the
+# others take their defaults.
 combos=()
 for gate in python own; do
     for release in false true; do
@@ -41,19 +44,40 @@ for gate in python own; do
         done
     done
 done
-combos+=("ci=jenkins gate=own release=false automerge=true" "ci=jenkins gate=own release=true automerge=true")
+jenkins="ci=jenkins jenkins_status_login=ci[bot] jenkins_release_credential=ci gate=own automerge=true"
+combos+=("$jenkins release=false" "$jenkins release=true")
 
 for combo in "${combos[@]}"; do
     echo "== $combo"
     dst="$tmp/${combo// /_}"
+    # read, not an unquoted $combo: a [bot] in an answer would be taken as a glob.
+    read -ra answers <<<"$combo"
     args=()
-    for answer in $combo; do args+=(-d "$answer"); done
+    for answer in "${answers[@]}"; do args+=(-d "$answer"); done
     if ! uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD \
         -d repo=o/n -d python_package=pkg "${args[@]}" "$root" "$dst"; then
         failed+=("$combo (render)")
         continue
     fi
     actionlint "$dst"/.github/workflows/*.yml || failed+=("$combo")
+done
+
+# Each render leaves out one of them and gives every other answer it would ask for, so only
+# that answer's missing default can make it fail.
+unanswered=(
+    "jenkins_status_login|ci=jenkins gate=own release=false"
+    "jenkins_release_credential|ci=jenkins jenkins_status_login=ci[bot] gate=own release=true"
+)
+for case in "${unanswered[@]}"; do
+    question=${case%%|*}
+    echo "== ci=jenkins without $question (must fail)"
+    read -ra answers <<<"${case#*|}"
+    args=()
+    for answer in "${answers[@]}"; do args+=(-d "$answer"); done
+    if uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD -d repo=o/n \
+        "${args[@]}" "$root" "$tmp/without-$question" 2>/dev/null; then
+        failed+=("Jenkins render without $question")
+    fi
 done
 
 if [ ${#failed[@]} -gt 0 ]; then

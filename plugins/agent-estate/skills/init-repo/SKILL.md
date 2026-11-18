@@ -1,6 +1,6 @@
 ---
 name: init-repo
-description: Apply the agent setup (issue tracker, cross-review push gate, quality gate) to a git repo from the agent-estate Copier template, or bring a repo that has it up to date. Use when asked to set up, initialise or bootstrap a repo for agents, to give a repo "the same setup as octoflow/hyprmuse", to change a repo's tracker, review gate or quality gate, or to update a repo after the template changed. Not for writing CLAUDE.md content by hand (`/init`).
+description: Apply the agent setup (issue tracker, cross-review push gate, quality gate) to a git repo from the agent-estate Copier template, or bring a repo that has it up to date. Use when asked to set up, initialise or bootstrap a repo for agents, to give a repo "the same setup as" another one, to change a repo's tracker, review gate or quality gate, or to update a repo after the template changed. Not for writing CLAUDE.md content by hand (`/init`).
 ---
 
 # Applying the agent setup to a repo
@@ -27,10 +27,10 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
    | `review_gate` | refuse Claude's pushes without a passing cross-review | yes |
    | `gate` / `python_package` | the quality gate: `python` (octoflow-ai's, for a uv-managed Python project, measuring `python_package`), `own` (a starter `scripts/gate` the repo fills in, any language) or `none` | `python` for such a project, else `own` |
    | `ci` | where the gate runs on pull requests: `none`, `jenkins`, `github-actions` | ask; Jenkins needs a job the user sets up |
-   | `jenkins_agent_label` / `jenkins_status_login` | the Jenkins agents allowed to build, and the App login whose status counts | `untrusted`, `davidsiegl-jenkins[bot]` |
+   | `jenkins_agent_label` / `jenkins_status_login` | the Jenkins agents allowed to build, and the App login whose status counts | `untrusted`; the login has no default: ask, as `<app-slug>[bot]` |
    | `jenkins_notify_email` | the address Jenkins mails on a build that did not pass and on the first passing one after it; empty sends none | ask; empty |
    | `automerge` | merge pull requests into main once CI passes, with no human | ask; it changes who merges |
-   | `release` / `jenkins_release_credential` | CI releases every merge into main that raises the version (`scripts/release`); on Jenkins, the credential holds a token that may create releases | ask; `GitHub-Agents` |
+   | `release` / `jenkins_release_credential` | CI releases every merge into main that raises the version (`scripts/release`); on Jenkins, the credential holds a token that may create releases | ask; the credential has no default: ask for its id |
 
    `ticket_sync` and the GitHub tracker's labels write to GitHub: say so before running.
 

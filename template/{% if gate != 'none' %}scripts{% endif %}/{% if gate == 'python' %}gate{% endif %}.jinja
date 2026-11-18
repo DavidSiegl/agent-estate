@@ -8,8 +8,8 @@
 #   scripts/gate [BASE]     BASE is any git revision; default the branch main, read as
 #                           refs/heads/main so a tag main cannot stand in (gitrevisions(7)).
 #
-# A change to docs alone (docs/ and Markdown at the top level, the owner's rule of
-# 2026-11-05) runs no tests: gate.py then judges its linters' findings, such as
+# A change to docs alone (docs/ and Markdown at the top level, agent-estate's owner's
+# rule of 2026-11-05) runs no tests: gate.py then judges its linters' findings, such as
 # pymarkdown's, and no tests or coverage. Any other tracked or untracked file differing
 # from BASE, or a git error while looking, runs everything.
 #
