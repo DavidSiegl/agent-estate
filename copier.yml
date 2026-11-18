@@ -4,7 +4,8 @@
 # releases. README.md says how to apply and update it.
 
 _subdirectory: template
-_min_copier_version: "9.0"
+# 9.6 is the first to give tasks _copier_operation, which init/apply.py needs.
+_min_copier_version: "9.6"
 
 # A repo-owned gate is the repo's from its first render: scripts/gate is a starter that
 # `copier update` never overwrites. octoflow-ai's gate stays the template's.

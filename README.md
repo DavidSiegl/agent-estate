@@ -44,6 +44,10 @@ repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and
 and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, so its own text is never
 rewritten.
 
+A repo with auto-merge whose `ci-cd` ruleset was set before it required strict status checks needs
+`init/github-rules.py` run again (below): auto-merge relies on GitHub refusing to merge a pull request that is
+behind `main`, and without that two pull requests that pass at the same moment can both merge.
+
 ## CI and auto-merge
 
 `gate` picks the quality gate: `python`, octoflow-ai's, for a uv-managed Python project; `own`, a starter

@@ -49,7 +49,6 @@ class Scratch(unittest.TestCase):
         self.git("commit", "-qm", rel)
 
 
-
 class PluginVersion(Scratch):
     def hook(self, cmd=PR):
         payload = json.dumps({"tool_input": {"command": cmd}, "cwd": str(self.root)})
@@ -145,10 +144,15 @@ class Ci(Scratch):
         self.assertEqual(r.returncode, 2)
         self.assertIn("nosuch", r.stderr)
 
-    def test_ci_fails_closed_on_a_manifest_that_is_not_json(self):
-        self.commit(MANIFEST, "{")
-        self.commit("plugins/p/skills/a/SKILL.md")
-        self.assertEqual(self.check()[0], 2)
+    def test_ci_fails_closed_on_a_manifest_that_is_not_a_json_object(self):
+        for text in ("{", "[]"):
+            with self.subTest(text):
+                self.commit(MANIFEST, text)
+                self.commit("plugins/p/skills/a/SKILL.md", text)
+                rc, err = self.check()
+                self.assertEqual(rc, 2)
+                self.assertIn(MANIFEST, err)
+                self.git("switch", "-q", "b")
 
 
 if __name__ == "__main__":

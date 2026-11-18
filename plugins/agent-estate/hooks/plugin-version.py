@@ -47,15 +47,18 @@ MANIFEST = ".claude-plugin/plugin.json"
 def version_at(root: str, rev: str, path: str) -> str | None:
     """The `version` in the plugin.json at path as of rev; None when the file
     does not exist there or has no version. Raises ValueError naming the file
-    when it is not JSON."""
+    when it is not a JSON object."""
     try:
         text = git(root, "show", f"{rev}:{path}")
     except subprocess.CalledProcessError:
         return None
     try:
-        v = json.loads(text).get("version")
+        manifest = json.loads(text)
     except ValueError as e:
         raise ValueError(f"{rev}:{path} is not JSON: {e}") from e
+    if not isinstance(manifest, dict):
+        raise ValueError(f"{rev}:{path} is not a JSON object")
+    v = manifest.get("version")
     return str(v) if v is not None else None
 
 

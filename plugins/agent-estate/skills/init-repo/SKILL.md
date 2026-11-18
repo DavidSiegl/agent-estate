@@ -13,8 +13,8 @@ read it rather than guessing what a run will touch. A repo that has the setup ca
 
 ## Before running anything
 
-1. **The repo must exist, be a git repo, and be clean.** apply.py fails outside a git
-   work tree, and `copier update` refuses a dirty one. Work on a branch, per the
+1. **The repo must exist, be a git repo, and be clean.** `copier copy` fails outside a git
+   work tree (apply.py refuses it), and `copier update` refuses a dirty one. Work on a branch, per the
    user's git rules.
 2. **Collect the answers from the user, not from guesses.** Each one is a decision about
    their repo:
@@ -70,5 +70,8 @@ inline markers (or `.rej` files) to resolve before committing.
 - With `ci` set: the CI side is the user's (the README's "Jenkins" section lists it). Once CI reports on a pull
   request, `init/github-rules.py` sets the `ci-cd` ruleset; it needs Administration: write, which the agents' token
   may lack, in which case give the user the command. Not before: until CI reports, the ruleset blocks every merge.
+  On an update of a repo with `automerge` whose ruleset is already set, it needs running again all the same: a
+  ruleset set before the template required strict status checks lacks them, and auto-merge relies on them (the
+  README's "Updating").
 - With `automerge` set, when the change adds `automerge.yml`: tell the user its pull request is theirs to merge.
   GitHub runs the workflow from `main`'s copy, so nothing merges this one, and agents never merge one themselves.

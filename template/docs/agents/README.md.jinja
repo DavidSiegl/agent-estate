@@ -76,7 +76,8 @@ Once that passes on a pull request's head commit, `.github/workflows/automerge.y
 commit and deletes its branch: opening a pull request is handing it over. To keep one for a human, open it as a draft
 or label it `no-automerge`. It merges whatever files the pull request changes, CI's, the gate's and its own
 configuration included; the header of `automerge.yml` is the rule, and names the `AUTOMERGE_TOKEN` secret it merges
-with. Never merge a pull request yourself.
+with. Never merge a pull request yourself. A pull request that falls behind `main` is brought up to date by
+auto-merge, which merges `main` into its branch, so pull before pushing more to one.
 {%- else %}
 
 Pull requests are merged by a human.
