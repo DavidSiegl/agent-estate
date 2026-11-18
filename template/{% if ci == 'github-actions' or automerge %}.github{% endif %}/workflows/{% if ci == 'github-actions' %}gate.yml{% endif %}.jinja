@@ -130,6 +130,43 @@ jobs:
       - name: Report
         if: always()
         run: if [ -f quality.md ]; then cat quality.md >> "$GITHUB_STEP_SUMMARY"; fi
+      # The JUnit reports of the tests scripts/gate ran, which it leaves at the repo root,
+      # added to the job summary: the count, and each test that failed with its message.
+      # Shown, never judged, as on Jenkins: a report that cannot be read is named in the
+      # summary rather than failing the job, whose result is the gate's alone. With no
+      # report{% if gate == 'python' %}, as on a change to docs alone,{% endif %} it adds nothing.
+      - name: Tests
+        if: always()
+        shell: python3 {0}
+        run: |
+          import glob, html, os, re
+          import xml.etree.ElementTree as ET
+
+          lines = []
+          for path in sorted(glob.glob("test-results*.xml")):
+              try:
+                  cases = list(ET.parse(path).getroot().iter("testcase"))
+              except (ET.ParseError, OSError) as e:
+                  lines.append(f"- `{path}` could not be read: {html.escape(str(e))}")
+                  continue
+              failed = []
+              for case in cases:
+                  bad = case.find("failure")
+                  if bad is None:
+                      bad = case.find("error")
+                  if bad is not None:
+                      failed.append((case, bad))
+              skipped = sum(case.find("skipped") is not None for case in cases)
+              lines.append(f"- `{path}`: {len(cases)} tests, {len(failed)} failed, {skipped} skipped")
+              for case, bad in failed:
+                  name = html.escape(".".join(filter(None, (case.get("classname"), case.get("name")))))
+                  text = (bad.text or bad.get("message") or "").strip()
+                  # A fence longer than any run of backticks in the text, which it then cannot close.
+                  fence = "`" * max(3, 1 + max(map(len, re.findall("`+", text)), default=0))
+                  lines.append(f"\n<details><summary>{name}</summary>\n\n{fence}\n{text}\n{fence}\n\n</details>\n")
+          if lines:
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write("\n## Tests\n\n" + "\n".join(lines) + "\n")
 {%- if release %}
 
   # Releases a push to main whose version has no release yet, packaging it first; any other
