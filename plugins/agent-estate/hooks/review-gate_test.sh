@@ -64,16 +64,25 @@ g -C "$R" push -q origin :b :wt
 printf 'Head: %s\nVerdict: findings\n' "$B" > "$T/repo/.scratch/reviews/02-b.md"
 check 1 "$W" origin b:wt2
 
-# A commit the remote already has, by the push's remote-tracking refs, sends nothing new: a tag
-# on a merge GitHub made needs no record. Another remote, or one named by URL, does not have it.
+# A tag on a commit already on the remote's default branch (refs/remotes/origin/HEAD) needs no
+# record: a release tag on the merge GitHub made. Not a branch to that commit, not a tag on a
+# commit on another remote branch, not another remote, a URL, or a remote with a pushurl.
 g -C "$R" checkout -q -b c main && g -C "$R" commit --allow-empty -m c && g -C "$R" checkout -q main
-REVIEW_GATE=off check 0 "$R" origin c
-g -C "$R" tag v2 c
-g init -q --bare -b main "$T/other.git" && g -C "$R" remote add other "$T/other.git"
+REVIEW_GATE=off check 0 "$R" origin c:main
+g -C "$R" checkout -q -b d main && g -C "$R" commit --allow-empty -m d && g -C "$R" checkout -q main
+REVIEW_GATE=off check 0 "$R" origin d
+g -C "$R" remote set-head origin main
+g -C "$R" tag v2 c && g -C "$R" tag v3 d
 check 0 "$R" origin v2
-check 0 "$W" origin c:refs/heads/c2
+check 0 "$W" origin refs/tags/v2:refs/tags/v2-wt
+check 1 "$R" origin c:refs/heads/c2
+check 1 "$R" origin v3
+g init -q --bare -b main "$T/other.git" && g -C "$R" remote add other "$T/other.git"
 check 1 "$R" other v2
 check 1 "$R" "$T/remote.git" refs/tags/v2:refs/tags/v2-by-url
+git -C "$R" config remote.origin.pushurl "$T/other.git"
+check 1 "$R" origin refs/tags/v2:refs/tags/v2-pushurl
+git -C "$R" config --unset remote.origin.pushurl
 
 # The repo's own hooks still run: pre-push after the gate, the others through passthrough.
 printf '#!/bin/sh\nexit 1\n' > "$T/repo/.git/hooks/pre-push" && chmod +x "$T/repo/.git/hooks/pre-push"

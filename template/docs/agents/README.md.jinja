@@ -31,8 +31,9 @@ land, deleting what was fixed or decided against.
 
 ## Review gate
 
-On: Claude's pushes of a commit with no `Verdict: pass` record under `.scratch/reviews/` are refused. Run the branch
-through the `cross-review` skill before pushing. A fresh clone has the gate off until `.scratch/reviews/` is created
+On: Claude's pushes of a commit with no `Verdict: pass` record under `.scratch/reviews/` are refused, except a tag on a
+commit already on the remote's default branch (a release tag on a merge). Run the branch through the `cross-review`
+skill before pushing. A fresh clone has the gate off until `.scratch/reviews/` is created
 at its root.
 {%- endif %}
 {%- if gate == 'python' %}
