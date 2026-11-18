@@ -44,15 +44,20 @@ uvx copier copy --trust --defaults \
 ```
 
 `--trust` is needed because the template runs apply.py. Without `--defaults` Copier asks
-interactively, which a Bash tool call cannot answer. The repo is private, so this needs the
-user's GitHub credentials for git (`gh auth setup-git`).
+interactively, which a Bash tool call cannot answer.
 
 To bring a repo up to date with the template, or to change an answer:
 
 ```bash
-uvx copier update --trust --defaults                 # same answers, newer template
+uvx copier update --trust --defaults                 # same answers, latest release
 uvx copier update --trust --defaults -d review_gate=false   # change one answer
 ```
+
+Both copy and update take the newest `vX.Y.Z` tag, not `main`: template work merged since the last tag
+reaches no repo until it is tagged (the README's "Changing the template"). A change you just merged into
+the template and want in a repo now is a tag for the user to push. `--vcs-ref=<sha>` is for a trial on a
+scratch copy only, never committed: the repo's next plain update would refuse to "downgrade" from that
+sha to the newest tag until a later one exists.
 
 Copier three-way merges template changes into the files it rendered; a conflict shows as
 inline markers (or `.rej` files) to resolve before committing.
@@ -61,9 +66,11 @@ inline markers (or `.rej` files) to resolve before committing.
 
 - Read every line apply.py printed and pass on anything it reported rather than did (an
   existing `[tool.ruff.lint]` left alone, a gate it could not turn off).
-- In a repo whose `docs/agents/` or `CLAUDE.md` were written by hand, compare the old text
-  with the rendered one, and move anything repo-specific out of `docs/agents/`: the next
-  `copier update` rewrites those files.
+- In a repo whose `docs/agents/`, `CLAUDE.md` or `AGENTS.md` were written by hand, compare the
+  old text with the rendered one, and move anything repo-specific out of `docs/agents/`: the
+  next `copier update` rewrites those files. apply.py only appends one line to `CLAUDE.md` (an
+  import) and to `AGENTS.md` (a pointer, for tools other than Claude Code), and leaves an
+  `AGENTS.md` that is a symlink alone.
 - For a Python gate, run `uv run pytest` and `scripts/gate`. Findings already in the
   repo do not block; only lines a change adds count.
 - Commit `.copier-answers.yml` with the rest; it is what `copier update` works from.

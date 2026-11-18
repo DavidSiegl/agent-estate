@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Runs actionlint over this repo's .github/workflows/ and over the workflows the template
+# renders (gate.yml, automerge.yml) for every combination of the answers they depend on: ci,
+# gate (python or own), release and automerge; and checks that .github/workflows/tests.yml
+# installs the actionlint the template's gate.yml pins. Exits 1 when actionlint reports
+# anything, a render fails or the pins differ, naming which; 0 when all are clean. The CI
+# workflow Tests runs it.
+#
+#     tests/lint-workflows
+#
+# Renders the template as committed at HEAD, plus uncommitted changes when run in a dirty
+# checkout (Copier's dirty-template copy), with `uvx copier copy --skip-tasks`, so
+# init/apply.py does not run. Needs uv, git and actionlint on PATH; actionlint also runs
+# shellcheck over run: blocks when that is on PATH.
+set -u
+root=$(cd "$(dirname "$0")/.." && pwd) || exit 1
+command -v actionlint >/dev/null || { echo "tests/lint-workflows: actionlint is not on PATH" >&2; exit 1; }
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$tmp"' EXIT
+
+failed=()
+# The Tests workflow installs the actionlint the template's gate.yml pins, so that the
+# rendered workflows are linted by the version they will run.
+echo "== actionlint pin"
+pins() { grep -E '^ *(version|sha256)=' "$1" | sed 's/^ *//'; }
+template_gate=$(find "$root/template" -name '*gate.yml*.jinja') || exit 1
+if [ "$(pins "$root/.github/workflows/tests.yml")" != "$(pins "$template_gate")" ] || [ -z "$(pins "$template_gate")" ]; then
+    echo "tests.yml and the template's gate.yml pin different actionlint versions or checksums" >&2
+    failed+=("actionlint pin")
+fi
+
+echo "== .github/workflows"
+actionlint "$root"/.github/workflows/*.yml || failed+=(".github/workflows")
+
+# The answers that change a rendered workflow; the others take their defaults.
+combos=()
+for gate in python own; do
+    for release in false true; do
+        for automerge in false true; do
+            combos+=("ci=github-actions gate=$gate release=$release automerge=$automerge")
+        done
+    done
+done
+combos+=("ci=jenkins gate=own release=false automerge=true" "ci=jenkins gate=own release=true automerge=true")
+
+for combo in "${combos[@]}"; do
+    echo "== $combo"
+    dst="$tmp/${combo// /_}"
+    args=()
+    for answer in $combo; do args+=(-d "$answer"); done
+    if ! uvx --quiet copier copy --quiet --defaults --skip-tasks --vcs-ref HEAD \
+        -d repo=o/n -d python_package=pkg "${args[@]}" "$root" "$dst"; then
+        failed+=("$combo (render)")
+        continue
+    fi
+    actionlint "$dst"/.github/workflows/*.yml || failed+=("$combo")
+done
+
+if [ ${#failed[@]} -gt 0 ]; then
+    printf 'tests/lint-workflows: failed: %s\n' "${failed[@]}" >&2
+    exit 1
+fi
+echo "tests/lint-workflows: all clean"

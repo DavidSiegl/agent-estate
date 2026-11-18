@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Runs every test suite in the repo: tests/*_test.py and the plugins' hooks/*_test.py and
+# hooks/*_test.sh. Runs them all even after one fails, then names each that failed and exits
+# 1; exits 0 when every one passed. The CI workflow Tests runs it on every pull request.
+#
+#     tests/run
+#
+# Needs uv and git. The Python suites run under `uv run --no-project --with jinja2`, since
+# tests/gate_test.py renders the template with jinja2 as Copier would.
+set -u
+root=$(cd "$(dirname "$0")/.." && pwd) || exit 1
+# A hook or `git rebase -x tests/run` exports these, and the suites' scratch repos would
+# then be that repo instead.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
+failed=()
+# A pattern that matches nothing stays literal and fails as a missing file, so a suite that
+# moved is reported rather than silently skipped.
+for t in "$root"/tests/*_test.py "$root"/plugins/*/hooks/*_test.py "$root"/plugins/*/hooks/*_test.sh; do
+    name=${t#"$root"/}
+    echo "== $name"
+    case $t in
+        *.py) uv run --quiet --no-project --with jinja2 python3 "$t" ;;
+        *) bash "$t" ;;
+    esac || failed+=("$name")
+done
+
+if [ ${#failed[@]} -gt 0 ]; then
+    printf 'tests/run: failed: %s\n' "${failed[@]}" >&2
+    exit 1
+fi
+echo "tests/run: all suites passed"

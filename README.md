@@ -7,7 +7,7 @@ them.
   the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for a
   project in any language, a quality gate as `scripts/gate` (octoflow-ai's for a uv Python project, else the repo's
   own), run by Jenkins or GitHub Actions, with optional auto-merge and releases (`scripts/release`). `init/apply.py`
-  does what isn't a template file: `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its
+  does what isn't a template file: `.gitignore`, the `CLAUDE.md` import and `AGENTS.md` pointer, `pyproject.toml`, git config, labels. Its
   docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger and todo-tickets,
@@ -35,14 +35,21 @@ Copier asks the questions in `copier.yml` and records the answers in `.copier-an
 ## Updating
 
 ```bash
-uvx copier update --trust              # pick up template changes
+uvx copier update --trust              # move to the latest tagged release
 uvx copier update --trust -d tracker=github   # change an answer
 ```
 
+`copier update` moves to the newest `vX.Y.Z` tag, not to `main`, so template work merged since the last release
+reaches no repo until it is tagged (see "Changing the template"). `--vcs-ref=<sha or tag>` picks another commit;
+for a sha past the newest tag, use it on a scratch copy and discard it, never commit the result: Copier records that
+sha as a newer version than the tag, so the repo's next plain `copier update` refuses it as a downgrade until a later
+tag exists.
+
 The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits, except a
 repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns
-and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, so its own text is never
-rewritten.
+and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, and `AGENTS.md`, for tools other
+than Claude Code, a line telling them to read that file, so neither's own text is ever rewritten. An `AGENTS.md` that
+is a symlink to `CLAUDE.md` is left alone.
 
 A repo with auto-merge whose `ci-cd` ruleset was set before it required strict status checks needs
 `init/github-rules.py` run again (below): auto-merge relies on GitHub refusing to merge a pull request that is
@@ -148,12 +155,36 @@ A plugin's own settings may set only `agent` and `subagentStatusLine`, so two th
 
 Plugin skills are namespaced, as in `agent-estate:cross-review`.
 
+## Companion plugins
+
+Some skills name skills from other plugins, which a plugin cannot declare as dependencies. Install them alongside
+for the skills to work in full:
+
+| Plugin | From | Used by |
+|---|---|---|
+| `plugin-dev` | `claude-plugins-official` (`/plugin install plugin-dev@claude-plugins-official`) | `automate-me` writes the skill with `plugin-dev:skill-development`, and says what to do without it |
+| `mattpocock-skills` | `claude-plugins-official` (`/plugin install mattpocock-skills@claude-plugins-official`) | `automate-me` (`writing-for-agents`) and `make-pr-easy-to-review` (`pr`) run one, and say what to do without it; `fix-ci`, `spec-generic`, `ticket-generic` and `todo-ledger` only suggest one; `deep-modules`, `design-it-twice` and `scratch-issue-tracker` only mention them |
+| `brz` | private, not published | only in the BRZ estate: `cross-review`, `spec-generic`, `ticket-generic` and `triad` name its skills as the BRZ alternatives to their own steps |
+
 ## Changing the template
 
 A change to a question goes in `copier.yml` and in the `init-repo` skill's table of answers. Before committing, try
 a change on a scratch repo: `copier copy` with every combination it touches, then `copier update` on a repo created
-from the previous commit, and run `python3 tests/release_test.py` and `python3 tests/gate_test.py`. Tag a release (`git tag vX.Y.Z`) so `copier update` moves between versions rather than
-commits.
+from the previous commit.
+
+`tests/run` runs every test suite in the repo, and `tests/lint-workflows` runs actionlint over the repo's workflows
+and the ones the template renders for each combination of answers (it needs actionlint on PATH). The Tests workflow
+runs both on every pull request into `main`.
+
+A merged change to `copier.yml`, `template/` or `init/` reaches repos only once it is in a release: a `vX.Y.Z` tag
+on `main`, which `copier update` moves to. Tag when what has merged since the last tag is something you want every
+repo to get on its next update. The number is the template's own and moves independently of the plugin's version in
+`plugin.json`, which ships through the marketplace: raise X when an update needs the repo's owner to act (a question
+renamed or removed, `init/github-rules.py` to run again), Y for a new question or file, Z for a fix.
+
+```bash
+git switch main && git pull && git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z
+```
 
 ## License
 

@@ -29,6 +29,11 @@
   writes them shows them as untracked files after every run. Closes when GATE_OUTPUTS['own'] lists `test-results*.xml`
   and `apply.py`'s test covers it.
 
+- **This repo's ruleset does not require the Tests workflow.** The `ci-cd` ruleset requires only `plugin-version`,
+  because `init/github-rules.py` takes a single `--check`, so a pull request whose `tests` job fails can still merge.
+  Closes when `github-rules.py` accepts more than one check (`--check` repeated) and the ruleset here is set again with
+  `--check plugin-version --check tests --app-id 15368`.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.

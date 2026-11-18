@@ -1,0 +1,40 @@
+# Runs the repo's own test suites (tests/run) and lints its workflows and the ones the
+# template renders (tests/lint-workflows) on every pull request into main. Each script's
+# header says what it covers.
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # All history: tests/lint-workflows renders the template from this checkout with
+      # Copier, which clones it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      # The pin and checksum the template's gate.yml installs; tests/lint-workflows fails
+      # when the two differ.
+      - name: Install actionlint
+        run: |
+          version=1.7.12
+          sha256=8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+          tarball="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v$version/actionlint_${version}_linux_amd64.tar.gz" -o "$tarball"
+          echo "$sha256  $tarball" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$tarball" -C "$RUNNER_TEMP/bin" actionlint
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Test suites
+        run: tests/run
+      - name: Lint workflows
+        if: ${{ !cancelled() }}
+        run: tests/lint-workflows
