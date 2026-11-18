@@ -7,7 +7,7 @@ them.
   the issue tracker (`.scratch/` with optional ticket-sync, or GitHub Issues), the cross-review push gate, and, for a
   project in any language, a quality gate as `scripts/gate` (octoflow-ai's for a uv Python project, else the repo's
   own), run by Jenkins or GitHub Actions, with optional auto-merge and releases (`scripts/release`). `init/apply.py`
-  does what isn't a template file: `.gitignore`, the `CLAUDE.md` import, `pyproject.toml`, git config, labels. Its
+  does what isn't a template file: `.gitignore`, the `CLAUDE.md` import and `AGENTS.md` pointer, `pyproject.toml`, git config, labels. Its
   docstring lists every step.
 - **`plugins/agent-estate/`**: the Claude Code plugin for the half that is not per repo: the skills every coding
   session uses (cross-review, triad, the `.scratch/` tracker and ticket-sync, spec- and ticket-generic, todo-ledger and todo-tickets,
@@ -44,8 +44,9 @@ reaches no repo until it is tagged (see "Changing the template"). `--vcs-ref=<sh
 
 The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged with local edits, except a
 repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns
-and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, so its own text is never
-rewritten.
+and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, and `AGENTS.md`, for tools other
+than Claude Code, a line telling them to read that file, so neither's own text is ever rewritten. An `AGENTS.md` that
+is a symlink to `CLAUDE.md` is left alone.
 
 A repo with auto-merge whose `ci-cd` ruleset was set before it required strict status checks needs
 `init/github-rules.py` run again (below): auto-merge relies on GitHub refusing to merge a pull request that is

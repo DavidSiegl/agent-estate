@@ -64,9 +64,11 @@ inline markers (or `.rej` files) to resolve before committing.
 
 - Read every line apply.py printed and pass on anything it reported rather than did (an
   existing `[tool.ruff.lint]` left alone, a gate it could not turn off).
-- In a repo whose `docs/agents/` or `CLAUDE.md` were written by hand, compare the old text
-  with the rendered one, and move anything repo-specific out of `docs/agents/`: the next
-  `copier update` rewrites those files.
+- In a repo whose `docs/agents/`, `CLAUDE.md` or `AGENTS.md` were written by hand, compare the
+  old text with the rendered one, and move anything repo-specific out of `docs/agents/`: the
+  next `copier update` rewrites those files. apply.py only appends one line to `CLAUDE.md` (an
+  import) and to `AGENTS.md` (a pointer, for tools other than Claude Code), and leaves an
+  `AGENTS.md` that is a symlink alone.
 - For a Python gate, run `uv run pytest` and `scripts/gate`. Findings already in the
   repo do not block; only lines a change adds count.
 - Commit `.copier-answers.yml` with the rest; it is what `copier update` works from.
