@@ -17,7 +17,8 @@ them.
   skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
   without the README (`hooks/readme-sync.py`'s docstring has the rule), the version check that refuses one changing
   a plugin without raising the `version` in its `.claude-plugin/plugin.json`, without which installs never load the
-  change (`hooks/plugin-version.py`'s docstring has the rule), and the context handover.
+  change (`hooks/plugin-version.py`'s docstring has the rule; `.github/workflows/plugin-version.yml` runs the same
+  check on every pull request into `main`, however it was opened), and the context handover.
   `.claude-plugin/marketplace.json` makes this repo its marketplace.
 
 ## Applying it to a repo
