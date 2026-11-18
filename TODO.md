@@ -5,7 +5,7 @@
 - **`scripts/release raised` names the target two ways in its failures.** Review 06, F6: "`exempt_at` and
   `version_at` print their argument, so the messages now read 'no commit refs/remotes/origin/main', 'cannot read
   .release-exempt at refs/remotes/origin/main' and 'no release version at refs/remotes/origin/main: …'. The rest of
-  `raised` says 'main'." Accurate, but it reads inconsistently in auto-merge's comments and Jenkins logs. Closes when
+  `raised` says 'main'." Accurate, but it reads inconsistently in CI's logs. Closes when
   those helpers' messages name what the caller calls the commit, if that costs less than the parameter it seems to
   need.
 
@@ -28,6 +28,14 @@
   GATE_OUTPUTS['own'] does not gitignore the `test-results*.xml` the own-gate header invites", so a repo whose gate
   writes them shows them as untracked files after every run. Closes when GATE_OUTPUTS['own'] lists `test-results*.xml`
   and `apply.py`'s test covers it.
+
+- **This repo's Plugin version check is neither required nor judged against the current `main`.** Review 03, F4:
+  "`.github/workflows/plugin-version.yml:26` judges against `pull_request.base.sha` as it was when the PR was last
+  pushed … `gh api repos/DavidSiegl/agent-estate/rulesets` returns 403 (private repo on the free plan) … PRs X and Y
+  each raise `plugins/agent-estate` from 0.6.0 to 0.6.1 and both pass. X merges. Y's check is never re-run against
+  the new main, Y merges, and its change ships under a version that installs already have." The workflow's header
+  says so. Closes when the repo can carry a strict ruleset requiring the check (public, or a paid plan), or the
+  check runs again on each push to `main` and says when a merge left a plugin unraised.
 
 ### ticket-sync
 

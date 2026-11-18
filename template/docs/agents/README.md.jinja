@@ -76,7 +76,8 @@ Once that passes on a pull request's head commit, `.github/workflows/automerge.y
 commit and deletes its branch: opening a pull request is handing it over. To keep one for a human, open it as a draft
 or label it `no-automerge`. It merges whatever files the pull request changes, CI's, the gate's and its own
 configuration included; the header of `automerge.yml` is the rule, and names the `AUTOMERGE_TOKEN` secret it merges
-with. Never merge a pull request yourself.
+with. Never merge a pull request yourself. A pull request that falls behind `main` is brought up to date by
+auto-merge, which merges `main` into its branch, so pull before pushing more to one.
 {%- else %}
 
 Pull requests are merged by a human.
@@ -101,7 +102,8 @@ The version is read from the first of `pyproject.toml`, `Cargo.toml`, `package.j
   the bump and its level as an acceptance criterion: `patch` for a fix, `minor` for a new feature or flag, `major` for
   a change that breaks what users rely on. {% if ci == 'jenkins' %}Jenkins's Version stage{% else %}The Gate workflow{% endif %} fails a pull request that doesn't.
 {%- if automerge %}
-  Auto-merge checks it again against `main` as it is when merging.
+  Auto-merge brings a pull request that is behind `main` up to date first, so the check runs again against `main` as
+  it is when merging.
 {%- endif %}
 - While the version is 0.x, a breaking change bumps `minor`: `major` would make it 1.0.0, a deliberate release
   decision rather than a side effect of a change.

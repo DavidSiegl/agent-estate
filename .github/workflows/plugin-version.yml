@@ -1,0 +1,31 @@
+# Fails a pull request into main that changes a plugin's files without raising the version
+# in its .claude-plugin/plugin.json, so a change merged from the browser, or by anyone the
+# plugin-version hook does not run for, still reaches installs. The rule and its reason are
+# plugins/agent-estate/hooks/plugin-version.py's; this only runs it on the pull request's
+# base and head commits, from the pull request's own copy of it, as CI runs any gate.
+# It judges against main as it was when the pull request was last pushed, and this repo
+# cannot require it (no rulesets on a private repo on the free plan), so two pull requests
+# raising to the same version can both merge: TODO.md has it.
+name: Plugin version
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # All history, for the merge base of the pull request's base and head.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 plugins/agent-estate/hooks/plugin-version.py "$BASE" "$HEAD"

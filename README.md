@@ -17,7 +17,8 @@ them.
   skipping it, ticket-sync, the README check that refuses a pull request into `main` changing what the README names
   without the README (`hooks/readme-sync.py`'s docstring has the rule), the version check that refuses one changing
   a plugin without raising the `version` in its `.claude-plugin/plugin.json`, without which installs never load the
-  change (`hooks/plugin-version.py`'s docstring has the rule), and the context handover.
+  change (`hooks/plugin-version.py`'s docstring has the rule; `.github/workflows/plugin-version.yml` runs the same
+  check on every pull request into `main`, however it was opened), and the context handover.
   `.claude-plugin/marketplace.json` makes this repo its marketplace.
 
 ## Applying it to a repo
@@ -42,6 +43,10 @@ The files Copier rendered (`docs/agents/*`, `scripts/gate`) are three-way merged
 repo-owned gate (`gate: own`): Copier writes its starter `scripts/gate` once and never again. `apply.py` reruns
 and is idempotent. `CLAUDE.md` only gains an `@docs/agents/README.md` import line, so its own text is never
 rewritten.
+
+A repo with auto-merge whose `ci-cd` ruleset was set before it required strict status checks needs
+`init/github-rules.py` run again (below): auto-merge relies on GitHub refusing to merge a pull request that is
+behind `main`, and without that two pull requests that pass at the same moment can both merge.
 
 ## CI and auto-merge
 
@@ -94,8 +99,9 @@ reasons):
 
 With `release`, a merge into `main` whose version has no GitHub release yet is released as `v<version>` by
 `scripts/release publish`, and CI's Version stage (Jenkins) or step (GitHub Actions) fails a pull request into `main`
-that changes a released path without raising the version; auto-merge checks that again right before merging, so a
-pull request overtaken by another that raised to the same version is held. The version is read from the first of
+that changes a released path without raising the version. The `ci-cd` ruleset merges only a pull request up to date
+with `main`, and auto-merge updates one that is behind, so a pull request overtaken by another that raised to the
+same version fails that check on its new head and is not merged. The version is read from the first of
 `pyproject.toml`, `Cargo.toml`, `package.json` or `VERSION` that holds one. `scripts/release`'s header is the rule:
 which file, which paths are exempt, and how versions compare.
 

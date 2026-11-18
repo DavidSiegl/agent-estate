@@ -10,7 +10,9 @@ that a status posted with anyone else's token does not count: Jenkins's own App 
 or GitHub Actions, 15368. Without it, any source satisfies the check.
 
 The ruleset, as octoflow-ai's: no deleting or force-pushing the default branch, a pull request for every change
-(no approvals required), and CONTEXT passing on it; nobody may bypass, so neither may an agent with your token.
+(no approvals required), and CONTEXT passing on its head, which must be up to date with the default branch
+(strict), so that two pull requests that passed at the same moment cannot both merge unchecked against each other;
+nobody may bypass, so neither may an agent with your token.
 Run it once CI reports CONTEXT on pull requests. Before then nothing can merge. Rerunning replaces the rules of
 an existing `ci-cd` ruleset with these.
 
@@ -63,7 +65,7 @@ def ruleset(check: str, app_id: int | None) -> dict:
             {"type": "required_status_checks", "parameters": {
                 "do_not_enforce_on_create": False,
                 "required_status_checks": [required],
-                "strict_required_status_checks_policy": False,
+                "strict_required_status_checks_policy": True,
             }},
         ],
     }
