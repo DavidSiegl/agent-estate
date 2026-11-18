@@ -2,7 +2,8 @@
 """git pre-push hook: the cross-review gate on Claude's pushes.
 
 Refuses a push, from a repo that opted into cross-session review, that would
-update a ref to a commit no reviewer has recorded `Verdict: pass` for. git
+update a ref to a commit no reviewer has recorded `Verdict: pass` for, except a
+tag on a commit already on the remote's default branch (below). git
 hands this hook every ref the push updates, so what is checked is exactly what
 is sent, however the command was written. Opt a repo in with
 `mkdir -p <main checkout>/.scratch/reviews` (the cross-review skill, "The gate").
@@ -20,7 +21,16 @@ PreToolUse guard ../no-verify-push.sh refuses Claude's commands that pass it.
 The records are the .scratch/reviews/ of the main checkout and of the checkout
 the push runs in: .scratch/ is gitignored, so it lives in whichever checkout
 created it. A deletion, or a ref whose object is no commit (a tag of a tree),
-sends no commit and is not checked.
+sends no commit and is not checked. Nor is a tag (refs/tags/*) whose commit is
+on the remote's default branch as last fetched, refs/remotes/<remote>/HEAD: that
+commit got there through main's own checks, as the merge commit GitHub makes for
+a reviewed pull request does, which never gets a record of its own, so tagging
+it as a release moves nothing unreviewed. Any other ref to such a commit is
+checked, so no branch can be moved to it unreviewed. A push to a URL, or to a
+remote with a pushurl (whose tracking refs describe another repo), gets no
+exemption; a remote without refs/remotes/<remote>/HEAD gets none either
+(`git remote set-head <remote> --auto` sets it). The tracking refs are local;
+like the records, they are trusted, not verified.
 
 `REVIEW_GATE=off git push ...` skips the gate; that is the user's to type.
 
@@ -79,12 +89,21 @@ def records(reviews: list[str]) -> tuple[list[str], list[str]]:
     return passed, summary
 
 
-def check(updates: str) -> Refusal | None:
+def released_tag(sha: str, remote_ref: str, remote: str) -> bool:
+    """Whether pushing commit sha to remote_ref of remote is a tag on its default
+    branch, which the module docstring exempts; False when git cannot tell."""
+    if not remote_ref.startswith("refs/tags/") or git("config", "--get", f"remote.{remote}.pushurl") is not None:
+        return False
+    return git("merge-base", "--is-ancestor", sha, f"refs/remotes/{remote}/HEAD") is not None
+
+
+def check(updates: str, remote: str) -> Refusal | None:
     """The Refusal for the push whose ref updates git gave on stdin, or None
     when it may go ahead.
 
     updates: git's pre-push input, one `<local ref> <local sha> <remote ref>
     <remote sha>` line per ref the push updates (githooks(5), "pre-push").
+    remote: the remote's name as git passes it, or its URL for a push to a URL.
     """
     root = git("rev-parse", "--show-toplevel")
     common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
@@ -102,11 +121,12 @@ def check(updates: str) -> Refusal | None:
             continue
         sha = git("rev-parse", "--verify", "-q", words[1] + "^{commit}")
         if sha:
-            pushed.append((sha, words[0]))
+            pushed.append((sha, words[0], words[2]))
     passed, summary = records(reviews)
     # Prefix comparison both ways, so a record may carry a short sha.
-    unreviewed = [f"{sha[:8]} ({ref})" for sha, ref in pushed
-                  if not any(sha.startswith(h) or h.startswith(sha) for h in passed)]
+    unreviewed = [f"{sha[:8]} ({ref})" for sha, ref, remote_ref in pushed
+                  if not any(sha.startswith(h) or h.startswith(sha) for h in passed)
+                  and not released_tag(sha, remote_ref, remote)]
     if not unreviewed:
         return None
     return Refusal(root, unreviewed, reviews[0], summary)
@@ -150,7 +170,7 @@ def main(argv: list[str]) -> int:
     updates = sys.stdin.read()
     if os.environ.get("REVIEW_GATE") != "off":
         try:
-            refusal = check(updates)
+            refusal = check(updates, argv[1])
         except Exception as err:  # the gate's own failure must not block the push
             print(f"review gate: allowing the push, the gate itself failed: {err!r}", file=sys.stderr)
             refusal = None
