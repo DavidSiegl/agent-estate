@@ -24,6 +24,11 @@
   :76-79) is the part that can drift silently." Closes with a `node --test` file beside it covering the derived name,
   the over-200-character hash and the single-prefix fallback.
 
+- **`gate: own` leaves its JUnit reports unignored.** Review 02, raised and not recorded: "`init/apply.py:52`
+  GATE_OUTPUTS['own'] does not gitignore the `test-results*.xml` the own-gate header invites", so a repo whose gate
+  writes them shows them as untracked files after every run. Closes when GATE_OUTPUTS['own'] lists `test-results*.xml`
+  and `apply.py`'s test covers it.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.

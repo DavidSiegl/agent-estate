@@ -5,10 +5,10 @@
 #
 #   scripts/release package-if-changed BASE
 #       Run the repo's scripts/package when the change from BASE to HEAD touches a
-#       released path, exiting with its status; when it touches only exempt ones, say so
-#       on standard output and exit 0, so a change to docs alone builds nothing. Exit 2 on
-#       an error (BASE unknown, no scripts/package). CI's Package stage or step runs it on
-#       a pull request.
+#       released path, exiting with its status; when the repo has no scripts/package or
+#       the change touches only exempt paths, say so on standard output and exit 0, so a
+#       change to docs alone builds nothing. Exit 2 on an error (BASE unknown). CI's
+#       Package stage or step runs it on every pull request.
 #   scripts/release raised TARGET
 #       Fetch origin's TARGET branch, then exit 0 when HEAD's release version is greater
 #       than TARGET's, or when the change since their merge base touches only exempt
@@ -24,9 +24,9 @@
 #       the latest release and gh failing for any reason but a missing release. Needs gh
 #       with GH_TOKEN, as publish does. CI runs it on main first, and only on 0 runs the
 #       repo's scripts/package and then publish, so a merge that releases nothing builds
-#       nothing. It answers rather than packaging itself, as package-if-changed does,
-#       because it holds the token, and scripts/package must not run below a process that
-#       does (publish).
+#       nothing. Unlike package-if-changed, it does not run scripts/package itself: it
+#       holds the token, and scripts/package must not run below a process that does
+#       (publish).
 #   scripts/release publish
 #       Create GitHub release v<version> at HEAD with gh (GH_TOKEN must allow it), unless
 #       it exists. When the repo has scripts/package, attach every file directly in
@@ -215,7 +215,10 @@ version_greater() {
 }
 
 package_if_changed() {
-    [ -e scripts/package ] || fail "no scripts/package to run"
+    if [ ! -e scripts/package ]; then
+        echo "scripts/release: no scripts/package; nothing to package"
+        return
+    fi
     exempt=$(exempt_at HEAD)
     status=0
     touches_released "$1" "$exempt" || status=$?

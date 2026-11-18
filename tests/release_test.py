@@ -234,6 +234,7 @@ class Release(unittest.TestCase):
 
     def test_package_if_changed_runs_scripts_package_for_a_released_path(self):
         self.package("touch packaged\nexit 3\n")
+        self.on_main({})
         self.commit({"p/cli.py": "2"})
         r = self.run_release("package-if-changed", "main")
         self.assertEqual(r.returncode, 3)
@@ -256,10 +257,13 @@ class Release(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse((self.root / "packaged").exists())
 
-    def test_package_if_changed_fails_with_2_on_a_bad_base_or_no_scripts_package(self):
+    def test_package_if_changed_builds_nothing_without_scripts_package(self):
+        self.commit({"p/cli.py": "2"})
         r = self.run_release("package-if-changed", "main")
-        self.assertEqual(r.returncode, 2)
-        self.assertIn("no scripts/package", r.stderr)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("no scripts/package; nothing to package", r.stdout)
+
+    def test_package_if_changed_fails_with_2_on_a_bad_base(self):
         self.package("touch packaged\n")
         r = self.run_release("package-if-changed", "no-such-rev")
         self.assertEqual(r.returncode, 2)
