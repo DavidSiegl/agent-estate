@@ -2,10 +2,12 @@
 """Tests for ticket-sync.py: run `python3 ticket-sync_test.py`. GitHub is a fake
 `gh` on PATH that keeps one repo's issues and labels in a JSON file and logs
 every call that changes them."""
+import fcntl
 import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -157,19 +159,26 @@ class TicketSync(unittest.TestCase):
         self.assertFalse((wt / ".scratch").exists(), "nothing is restored into the worktree")
 
     def test_a_ticket_under_a_worktrees_own_scratch_is_reported_unsynced(self):
+        # Outside the main checkout, and inside it where Claude Code puts its
+        # worktrees; the note needs no lock, so one held elsewhere cannot delay it.
         self.opt_in_and_sync()
-        wt = Path(self.tmp.name) / "wt"
         git = ["git", "-C", str(self.root), "-c", "user.name=t", "-c", "user.email=t@t"]
         subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "c"], check=True, env=self.env)
-        subprocess.run([*git, "worktree", "add", "-q", str(wt)], check=True, env=self.env)
-        ticket = wt / ".scratch/feat/issues/03-third.md"
-        ticket.parent.mkdir(parents=True)
-        ticket.write_text("# Third\nStatus: ready-for-agent\n")
-        before = self.calls()
-        note = self.hook("PostToolUse", ticket, cwd=wt)
-        self.assertIn("not synced", note)
-        self.assertIn(str(self.root / ".scratch"), note)
-        self.assertEqual(self.calls(), before)
+        for wt in (Path(self.tmp.name) / "wt", self.root / ".claude/worktrees/wt"):
+            with self.subTest(wt=wt):
+                subprocess.run([*git, "worktree", "add", "-q", "--detach", str(wt)], check=True, env=self.env)
+                ticket = wt / ".scratch/feat/issues/03-third.md"
+                ticket.parent.mkdir(parents=True)
+                ticket.write_text("# Third\nStatus: ready-for-agent\n")
+                before = self.calls()
+                with open(self.root / ".scratch/.ticket-sync.lock", "w") as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    started = time.monotonic()
+                    note = self.hook("PostToolUse", ticket, cwd=wt)
+                    self.assertLess(time.monotonic() - started, 5)
+                self.assertIn("not synced", note)
+                self.assertIn(str(self.root / ".scratch"), note)
+                self.assertEqual(self.calls(), before)
 
     def test_a_worktree_whose_main_checkout_is_unknown_says_so(self):
         t = Path(self.tmp.name)

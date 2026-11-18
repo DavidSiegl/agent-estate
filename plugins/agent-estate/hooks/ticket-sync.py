@@ -706,6 +706,13 @@ def hook() -> None:
                                                  "additionalContext": f"ticket-sync: {e}"}}))
     if not found:
         return
+    scratch = found[0] / ".scratch"
+    if name != "SessionStart" and not target.resolve().is_relative_to(scratch.resolve()):
+        # A linked worktree's own .scratch/ (see opted_in), decided before the
+        # sync lock so another sync cannot delay or obscure it.
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": name, "additionalContext":
+            f"ticket-sync: {target} is not synced: this repo syncs the tickets under {scratch}."}}))
+        return
 
     notes = []
     try:
@@ -727,10 +734,6 @@ def hook() -> None:
                         if name == "PreToolUse" else
                         f"ticket-sync rewrote {target} from GitHub after this edit ({line}); "
                         "read it again before editing it.")
-            elif not target.resolve().is_relative_to(found[0].resolve()):
-                # A linked worktree's own .scratch/ (see opted_in).
-                notes.append(f"ticket-sync: {target} is not synced: this repo syncs the "
-                             f"tickets under {found[0] / '.scratch'}.")
         finally:
             repo.close()
     except SyncError as e:
