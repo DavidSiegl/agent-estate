@@ -3,12 +3,14 @@
 
     apply.py --repo OWNER/NAME --tracker scratch|github --ticket-sync true|false
              --review-gate true|false --gate python|own|none --python-package NAME|''
-             --automerge true|false
+             --automerge true|false --operation copy|update
 
-copier.yml runs this after `copier copy` and `copier update`, with the answers, in the
-destination repo. Outside a git work tree it does nothing and exits 0: `copier update`
-also runs it in the scratch renders of the old and new template versions it diffs, which
-are not repos. So run copier in a repo that already exists. It is idempotent: each step
+copier.yml runs this after `copier copy` and `copier update`, with the answers and the
+operation, in the destination repo, which must be a git work tree: on `copy` outside one
+it fails, saying so. On `update` outside one it does nothing and exits 0, since that is
+one of the scratch renders of the old and new template versions copier diffs, which it
+runs this in too and which are not repos (copier refuses to update a destination that is
+not one, and gives tasks no documented way to tell those renders apart). It is idempotent: each step
 brings one thing to the state the answers ask for and leaves it alone when it is already
 there. The steps:
 
@@ -171,13 +173,18 @@ def main() -> int:
     p.add_argument("--gate", choices=list(GATE_OUTPUTS), default="none")
     p.add_argument("--python-package", default="")
     p.add_argument("--automerge", choices=["true", "false", "True", "False"], default="false")
+    p.add_argument("--operation", choices=["copy", "update"], required=True)
     a = p.parse_args()
     ticket_sync = a.tracker == "scratch" and a.ticket_sync.lower() == "true"
     review_gate = a.review_gate.lower() == "true"
 
     top = run("git", "rev-parse", "--show-toplevel", check=False)
     if top.returncode != 0:
-        return 0  # one of copier update's scratch renders; see the module docstring
+        if a.operation == "update":
+            return 0  # one of copier update's scratch renders; see the module docstring
+        print(f"apply.py: {Path.cwd()} is not in a git work tree; run `git init` there, or copy into a repo"
+              " that exists, and copy again", file=sys.stderr)
+        return 1
     root = Path(top.stdout.strip())
     try:
         ensure_lines(root / ".gitignore", "Claude Code's personal instructions for this repo", ["CLAUDE.local.md"])

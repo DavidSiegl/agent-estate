@@ -13,7 +13,8 @@ _skip_if_exists:
 
 # Post-copy and post-update steps that are not template files: they edit files the repo
 # already owns (.gitignore, CLAUDE.md, pyproject.toml) and set state outside the tree.
-# init/apply.py documents each; it is idempotent, so `copier update` reruns it.
+# init/apply.py documents each, and why it needs the operation; it is idempotent, so
+# `copier update` reruns it.
 _tasks:
   - command:
       - python3
@@ -25,6 +26,7 @@ _tasks:
       - "--gate={{ gate }}"
       - "--python-package={{ python_package if gate == 'python' else '' }}"
       - "--automerge={{ automerge }}"
+      - "--operation={{ _copier_operation }}"
 
 repo:
   type: str
