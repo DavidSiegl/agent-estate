@@ -81,7 +81,7 @@ jobs:
             if [ "$state" = running ]; then
               echo "$SHA: $check is still running; its run decides"
               exit 0
-            elif [ "$state" != success ]; then
+            elif [ "$state" != success ] && [ "$state" != skipped ] && [ "$state" != neutral ]; then
               echo "$SHA: held, required check $check: $state"
               exit 0
             fi

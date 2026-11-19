@@ -186,8 +186,8 @@ from the previous commit.
 and the ones the template renders for each combination of answers (it needs actionlint on PATH). The Tests workflow
 runs both on every pull request into `main`, and `.github/workflows/automerge.yml`, the template's auto-merge
 adapted to wait for both Tests and Plugin version, merges one once the check runs the ruleset requires passed on its
-head and no other check run failed. It merges with the
-`AUTOMERGE_TOKEN` secret, as the template's does, and the `ci-cd` ruleset here requires both checks:
+head and no other check run failed. It merges with the `AUTOMERGE_TOKEN` secret, as the template's does, and the
+`ci-cd` ruleset here requires both checks:
 `init/github-rules.py DavidSiegl/agent-estate --check plugin-version --check tests --app-id 15368`.
 
 A merged change to `copier.yml`, `template/` or `init/` reaches repos only once it is in a release: a `vX.Y.Z` tag
