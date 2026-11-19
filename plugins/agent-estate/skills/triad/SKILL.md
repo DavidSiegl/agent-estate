@@ -205,6 +205,22 @@ claude -p --resume "$impl" "/triad adjudicate $RECORD" \
 `Agent` and `Task` both, and the absolute deny rule, for the reasons in
 `cross-review`'s launch-line notes.
 
+In pi the same three runs are `pi -p` calls. The implementer's session id is
+chosen up front, so the adjudication can resume it; pi has no per-path deny,
+so the rule that the implementer leaves `spec.md` alone rests on this skill's
+instruction alone:
+
+```bash
+impl=$(cat /proc/sys/kernel/random/uuid)
+pi -p --mode json --session-id "$impl" --tools read,grep,find,ls,bash,edit,write \
+  "/skill:triad implement $TICKET" > "$LOG.impl" || exit 1
+# reviewer: cross-review's "In pi" launch line
+pi -p --mode json --session-id "$impl" --tools read,grep,find,ls,bash,edit,write \
+  "/skill:triad adjudicate $RECORD" > "$LOG.adjudicate"
+```
+
+Check each log as `cross-review` says: `pi -p` exits 0 even when the run failed.
+
 The bare `Bash` on the implementer is the cost of unattended work, and the
 `ready-for-agent` label is the judgement that it is affordable. If it is not,
 the ticket was mislabelled — hand it back rather than narrowing the allowlist

@@ -40,7 +40,7 @@ Claude Code analog of Cursor's built-in `/babysit`. The implementation is a loop
 4. **When to stop.**
    - Build is green, every review thread `isResolved`, branch merges cleanly → call it ready.
    - You've run three rounds of fix → push → recheck and it still isn't fully green → stop, summarise what's still broken, and hand control back.
-   - The next fix would force a design choice → pause and put it to the user with `AskUserQuestion`.
+   - The next fix would force a design choice → pause and put it to the user with `AskUserQuestion` (pi has no question tool: there, list the same options numbered, end the turn and wait for the answer).
 
 5. **Report.** Summarize fixes applied, comments addressed, comments deferred (with reason), current PR status. Cite each commit by SHA.
 

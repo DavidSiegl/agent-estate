@@ -78,7 +78,7 @@ every git repo directly under `~/GitHub`.
   `${CLAUDE_PLUGIN_ROOT}/hooks/trunk-cleanup.py <repo>` and relay its report.
 - In any other repo, the user approves removals. Run it with `--dry-run`
   first and show what it would remove and what it keeps, and why. Then ask
-  with AskUserQuestion, with "remove all of these" as the first option. Run it
+  with AskUserQuestion, with "remove all of these" as the first option (pi has no question tool: there, list the same options numbered, end the turn and wait for the answer). Run it
   without `--dry-run` only on a yes. For a subset, remove each approved item by
   hand: `git worktree remove <path>`, then `git branch -d <branch>`. Use
   `git branch -D` only for a branch the dry run listed, because `-d` checks

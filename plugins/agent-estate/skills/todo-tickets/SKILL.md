@@ -69,6 +69,8 @@ Then call `AskUserQuestion`: proceed with these buckets, or adjust (under
 question says that ticketed, `not worth` and `stale` entries all leave
 `TODO.md`, and either that the tracker publishes the tickets or that they will
 then exist only in this checkout. Nothing is written before this answer.
+pi has no question tool: there, and in step 5, list the options numbered in
+prose, end the turn and wait for the answer.
 
 ## 5 — Interview the unclear ones
 

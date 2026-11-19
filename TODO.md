@@ -34,6 +34,12 @@
   on one commit (`settled`) exist only in this repo's copy. Closes when both take the loop from one file (a script
   the template renders and this repo runs), or a test fails when they differ.
 
+- **In pi, a session started by `cross-review` or `triad` can write anywhere.** Claude Code's launch lines confine
+  the reviewer to its record (`Edit(/$REVIEWS/**)`) and keep the implementer off `spec.md`; pi has no per-path
+  permission rules, so there both rest on the skill's instruction (the skills' "In pi" passages say so). Closes
+  when `plugins/agent-estate/pi/` enforces a write scope the launch line passes in (an environment variable its
+  `tool_call` handler checks against write and edit paths), or pi gains path rules.
+
 ### ticket-sync
 
 Paths relative to `plugins/agent-estate/hooks/`.

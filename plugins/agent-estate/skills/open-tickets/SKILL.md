@@ -72,6 +72,8 @@ Call `AskUserQuestion` with `multiSelect: true`. The options are up to four
 description. When fewer than two exist, fill the remaining places with
 `needs-info` tickets ("answer its question") and then with "Nothing for now".
 Note in the question that they can type other IDs under "Other".
+pi has no question tool: there, list the same options numbered, say they may
+name other IDs, end the turn and wait for the answer.
 
 When nothing is `takeable` or `needs-info`, skip the question: after the tables,
 say that nothing is ready for an agent, and ask in prose whether they want to

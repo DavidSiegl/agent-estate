@@ -1,6 +1,6 @@
 ---
 name: handover
-description: Write a handover so work continues in a fresh context after /clear. Use when a hook reports the context is getting long, or when asked to hand over, flush or reset context.
+description: Write a handover so work continues in a fresh context after /clear (pi: /new). Use when a hook reports the context is getting long, or when asked to hand over, flush or reset context.
 argument-hint: "[note for the next context]"
 ---
 
@@ -10,7 +10,9 @@ The next context starts with nothing but this file, `CLAUDE.md`, the repo and
 the completion notices of background tasks still running (see **Running**).
 The handover is the bridge: everything the work needs that the repo and git do
 not already hold. `${CLAUDE_PLUGIN_ROOT}/hooks/context-handover.sh` (its header has the
-mechanics) injects it into the session after `/clear`, once.
+mechanics) injects it into the session after `/clear`, once. In pi the
+package's extension runs the same hooks, and pi's `/new` stands for `/clear`
+throughout.
 
 ## Steps
 
@@ -39,7 +41,8 @@ as step 4 says and do not stop, clear or notify again.
      what it does, its output or log file, and what to do with its result.
      Stop with `TaskStop` (deferred: load it through ToolSearch) any whose
      result no longer matters, leave it out, and name under **State** any
-     files it left behind. A background command outlives `/clear` and its
+     files it left behind. pi has no background tasks; for a process you
+     started detached, give its pid and log file instead. A background command outlives `/clear` and its
      notice arrives in the next context, so write that wait as "wait for the
      completion notice of task `<id>`", never as a process to find with
      `pgrep` or poll with `kill -0`. Nobody has yet seen an agent's or a
@@ -61,7 +64,8 @@ as step 4 says and do not stop, clear or notify again.
    prompt to continue once this turn ends. Tell the user in one line that the
    handover is at that path and the context will clear itself. If `clear`
    exits non-zero, the session is blocked on the user, who alone can run
-   `/clear` and may be away: say so, and send one `PushNotification`, leading
+   `/clear` and may be away: say so, and send one push notification where the
+   harness can (Claude Code's `PushNotification`; pi has none), leading
    with the action, e.g.
    `BLOCKED: handover written (<repo>: <task>) — /clear to continue`; when
    **Open** holds a question for the user, name it instead of the task.

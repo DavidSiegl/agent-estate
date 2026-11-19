@@ -187,6 +187,25 @@ When the user asks to run the reviewer themselves, print the same line without
 is an auto-approval list instead, so an edit outside the record stops and asks
 the user, which is the same guard with a human in it.
 
+### In pi
+
+The same launch, as a `pi -p` run from bash in the foreground (pi has no
+background tasks; give the bash call a timeout of 20 minutes):
+
+```bash
+LOG=<your scratchpad>/review-NN.jsonl
+cd "$ROOT" && pi -p --mode json --no-session --tools read,grep,find,ls,bash,edit \
+  "/skill:cross-review $REVIEWS/NN-<slug>.md" > "$LOG" 2> "$LOG.err"
+jq -r 'select(.type=="agent_end") | .messages[-1] | "\(.stopReason) \(.errorMessage // "-")"' "$LOG"
+```
+
+`pi -p` exits 0 even when the model call failed; the run failed when that line
+starts with `error` (a 429 is a rate limit: wait and relaunch), or when `Head:`
+in the record is not the sha you asked for. `--tools` is the allowlist, but pi
+has no per-path rule like `Edit(/$REVIEWS/**)`: the reviewer's read-only rule
+rests on this skill's instruction alone. `--model <provider/id>` picks the
+reviewer's model.
+
 ## Role 2 — review (a separate session)
 
 Given a record path, you are the reviewer. You did not write this code and you
@@ -199,7 +218,9 @@ names, and the diff. Nothing else.
    above; in a later round, see Rounds). In the BRZ estate, load `brz:ops-review` and
    run what its table earns; `brz:pg-ops-reviewer` and `brz:jenkins-lint` pin
    their own models. Elsewhere, run `/code-review <level> <Base>..<HEAD sha>`,
-   plus the spec conformance pass below when the record names a ticket. Give it
+   plus the spec conformance pass below when the record names a ticket. pi
+   has neither: there, load the `code-review` skill (mattpocock-skills) with
+   `<Base>` as its fixed point; its Spec axis is the conformance pass. Give it
    the range, both ends as shas: a lone sha is taken as the commit to review, so
    on a stacked branch it reviews the branch below instead. Note in `Passes:`
    which ran, with the range, and which the diff did not earn.

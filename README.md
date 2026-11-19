@@ -21,7 +21,7 @@ Jenkins credential it releases with, have no defaults.
   a plugin without raising the `version` in its `.claude-plugin/plugin.json`, without which installs never load the
   change (`hooks/plugin-version.py`'s docstring has the rule; `.github/workflows/plugin-version.yml` runs the same
   check on every pull request into `main`, however it was opened), and the context handover.
-  `.claude-plugin/marketplace.json` makes this repo its marketplace.
+  `.claude-plugin/marketplace.json` makes this repo its marketplace, and `package.json` a pi package (below).
 
 ## Applying it to a repo
 
@@ -164,6 +164,27 @@ A plugin's own settings may set only `agent` and `subagentStatusLine`, so two th
   dotfiles' `statusline-command.sh` does. Without it the handover reminder never fires.
 
 Plugin skills are namespaced, as in `agent-estate:cross-review`.
+
+## Installing it in pi
+
+The repo is also a [pi](https://pi.dev) package: the root `package.json` loads the plugin's skills and
+`plugins/agent-estate/pi/`, an extension that runs the hooks in `hooks/hooks.json` as Claude Code would (the header
+of `pi/index.ts` maps pi's events onto Claude Code's). Once per machine:
+
+```bash
+pi install git:github.com/DavidSiegl/agent-estate
+```
+
+What differs from Claude Code:
+
+- The skills say what to do in pi where they use a tool only Claude Code has (`AskUserQuestion`, subagents,
+  background tasks); `cross-review` and `triad` start their sessions with `pi -p`.
+- pi has no subagents, so no `chore` agent, and no permission rules, so neither the `gh pr merge` deny rule nor
+  the reviewer's write scope has a counterpart there.
+- The extension writes the context handover's token count itself; no status line is needed. `/new` is pi's
+  `/clear`.
+- Skills are not namespaced: `/skill:cross-review`. The mattpocock skills the table below names install the same
+  way from `git:github.com/mattpocock/skills`.
 
 ## Companion plugins
 
