@@ -89,6 +89,8 @@ init/github-rules.py OWNER/NAME --check continuous-integration/jenkins/pr-head -
 init/github-rules.py OWNER/NAME --check gate --app-id 15368                                      # GitHub Actions
 ```
 
+`--check` repeats when the ruleset should require more than one check.
+
 APP_ID is the id of the GitHub App Jenkins posts statuses with, shown on the App's settings page; it must be the App
 whose login is the `jenkins_status_login` answer. 15368 is GitHub Actions' own.
 
@@ -182,7 +184,11 @@ from the previous commit.
 
 `tests/run` runs every test suite in the repo, and `tests/lint-workflows` runs actionlint over the repo's workflows
 and the ones the template renders for each combination of answers (it needs actionlint on PATH). The Tests workflow
-runs both on every pull request into `main`.
+runs both on every pull request into `main`, and `.github/workflows/automerge.yml`, the template's auto-merge
+adapted to wait for both Tests and Plugin version, merges one once the check runs the ruleset requires passed on its
+head and no other check run failed. It merges with the `AUTOMERGE_TOKEN` secret, as the template's does, and the
+`ci-cd` ruleset here requires both checks:
+`init/github-rules.py DavidSiegl/agent-estate --check plugin-version --check tests --app-id 15368`.
 
 A merged change to `copier.yml`, `template/` or `init/` reaches repos only once it is in a release: a `vX.Y.Z` tag
 on `main`, which `copier update` moves to. Tag when what has merged since the last tag is something you want every

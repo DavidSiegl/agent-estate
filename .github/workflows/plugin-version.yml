@@ -7,7 +7,7 @@
 # requires it on a head up to date with main, so of two pull requests raising to the same
 # version, the second must take the first's merge and be checked again before it can merge.
 # The ruleset is set with: init/github-rules.py DavidSiegl/agent-estate --check
-# plugin-version --app-id 15368.
+# plugin-version --check tests --app-id 15368.
 name: Plugin version
 
 on:
