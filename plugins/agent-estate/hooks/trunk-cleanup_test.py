@@ -2,7 +2,8 @@
 """Tests for trunk-cleanup.py: run `python3 trunk-cleanup_test.py`. Each test
 works in a clone of a scratch bare repo whose default branch is main, with
 agent.trunkBased on, a stub `gh` that reports the merged pull request heads in
-$MERGED_HEADS, and a CLAUDE_CONFIG_DIR with no transcripts."""
+$MERGED_HEADS, and a CLAUDE_CONFIG_DIR and PI_CODING_AGENT_DIR with no
+sessions."""
 import json
 import os
 import stat
@@ -28,7 +29,7 @@ class Scratch(unittest.TestCase):
         (bin_dir / "gh").write_text(GH)
         (bin_dir / "gh").chmod(stat.S_IRWXU)
         self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "MERGED_HEADS": "",
-                    "CLAUDE_CONFIG_DIR": str(self.tmp / "claude"),
+                    "CLAUDE_CONFIG_DIR": str(self.tmp / "claude"), "PI_CODING_AGENT_DIR": str(self.tmp / "pi"),
                     "GIT_CONFIG_COUNT": "2", "GIT_CONFIG_KEY_0": "user.name", "GIT_CONFIG_VALUE_0": "t",
                     "GIT_CONFIG_KEY_1": "user.email", "GIT_CONFIG_VALUE_1": "t@t"}
         for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
@@ -184,7 +185,15 @@ class Worktrees(Scratch):
         project = self.tmp / "claude" / "projects" / "".join(c if c.isalnum() else "-" for c in str(path))
         project.mkdir(parents=True)
         (project / "s.jsonl").write_text("{}")
-        self.assertIn("a Claude session used it", self.hook())
+        self.assertIn("a Claude Code or pi session used it", self.hook())
+        self.assertTrue(path.exists())
+
+    def test_recent_pi_session_keeps_it(self):
+        path = self.worktree("wt", "w")
+        sessions = self.tmp / "pi" / "sessions" / ("--" + str(path).lstrip("/").replace("/", "-") + "--")
+        sessions.mkdir(parents=True)
+        (sessions / "s.jsonl").write_text("{}")
+        self.assertIn("a Claude Code or pi session used it", self.hook())
         self.assertTrue(path.exists())
 
     def test_deleted_directory_pruned(self):
