@@ -81,7 +81,7 @@ a round (below).
 
 ## Role P1 — specify
 
-Load `brz:spec` (BRZ estate) or `spec-generic`, and write `## Acceptance` into every
+Load `spec-generic`, and write `## Acceptance` into every
 ticket as part of that. Then print the implementer's launch line and stop:
 
 ```bash
@@ -111,7 +111,7 @@ test first.
    that lead to different code. If any is real, set `Status: needs-info`, name
    who answers, and **stop** — do not implement past it by picking the likelier
    reading. If none, write the explicit `none` with what you checked.
-2. **Implement** via `brz:ticket` or `ticket-generic`: claim, build, verify. Every
+2. **Implement** via `ticket-generic`: claim, build, verify. Every
    `A<n>` gets a test where the lane has a test layer, and `## Comments` names
    which test covers which criterion, or says which criterion has no test and why.
 3. **Commit, open the review record** — `cross-review` Role 1, facts only — and

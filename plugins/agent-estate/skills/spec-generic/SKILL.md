@@ -1,6 +1,6 @@
 ---
 name: spec-generic
-description: Turn a feature request into a grounded spec and numbered implementation tickets under `.scratch/<feature-slug>/`, in any repo — no assumptions about the language, the deploy path or the estate. Use when starting a feature or a refactor, when a request is still vague and needs interviewing before code is written, or when an agreed change needs splitting into independently mergeable tickets. Covers the interview, grounding requirements at file:line, deriving the lane and the verification from the repo itself, and honest triage. For the BRZ database estate use `brz:spec` instead.
+description: Turn a feature request into a grounded spec and numbered implementation tickets under `.scratch/<feature-slug>/`, in any repo — no assumptions about the language, the deploy path or the estate. Use when starting a feature or a refactor, when a request is still vague and needs interviewing before code is written, or when an agreed change needs splitting into independently mergeable tickets. Covers the interview, grounding requirements at file:line, deriving the lane and the verification from the repo itself, and honest triage.
 ---
 
 # Writing a spec in an unfamiliar repo

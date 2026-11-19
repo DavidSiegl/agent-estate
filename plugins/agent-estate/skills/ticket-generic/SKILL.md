@@ -1,6 +1,6 @@
 ---
 name: ticket-generic
-description: Pick up a ticket from `.scratch/<feature-slug>/issues/` and implement it in any repo — claiming it, finding the repo's conventions before writing code, verifying it the way the ticket says, and recording the outcome in the ticket and TODO.md. Use when starting work on a specified ticket, when resuming an interrupted one, or when asked what to work on next in a feature directory. For the BRZ database estate use `brz:ticket` instead.
+description: Pick up a ticket from `.scratch/<feature-slug>/issues/` and implement it in any repo — claiming it, finding the repo's conventions before writing code, verifying it the way the ticket says, and recording the outcome in the ticket and TODO.md. Use when starting work on a specified ticket, when resuming an interrupted one, or when asked what to work on next in a feature directory.
 ---
 
 # Implementing a ticket in an unfamiliar repo

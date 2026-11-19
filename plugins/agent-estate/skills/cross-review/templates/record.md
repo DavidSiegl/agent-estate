@@ -2,7 +2,7 @@
 
 Repo: <repo>
 Branch: <branch>
-Base: <base-sha> (<review-base ref, e.g. origin/dev>)
+Base: <base-sha> (<review-base ref, e.g. origin/main>)
 Stakes: <high / normal / low> (<the spec or ticket fact that sets it>)
 Head: <not yet reviewed>
 Verdict: requested
@@ -24,7 +24,7 @@ Passes: <not yet reviewed>
 
 Severity: <blocking / should-fix / nit>
 File: <path>:<line>
-Pass: <the pass that raised it: brz:pg-ops-reviewer, brz:jenkins-lint, /code-review, spec-conformance>
+Pass: <the pass that raised it: /code-review, spec-conformance>
 Failure: <what goes wrong when the code runs, not which rule was broken>
 Disposition: open
 
