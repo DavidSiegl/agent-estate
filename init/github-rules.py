@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Protect a repo's default branch with the ruleset `ci-cd`: changes arrive only through pull requests, and only
-once CI's check passed.
+once CI's checks passed.
 
-    github-rules.py OWNER/NAME --check CONTEXT [--app-id ID]
+    github-rules.py OWNER/NAME --check CONTEXT [--check CONTEXT ...] [--app-id ID]
 
-CONTEXT is the status or check CI reports on a pull request: `continuous-integration/jenkins/pr-head` for the
+Each CONTEXT is a status or check CI reports on a pull request, and every one must pass: `continuous-integration/jenkins/pr-head` for the
 template's Jenkins job, `gate` for its GitHub Actions workflow. ID is the GitHub App the check must come from, so
 that a status posted with anyone else's token does not count: the id of the GitHub App your Jenkins posts statuses
-with (its settings page shows it), or GitHub Actions, 15368. Without it, any source satisfies the check.
+with (its settings page shows it), or GitHub Actions, 15368. It applies to every CONTEXT. Without it, any source
+satisfies a check.
 
 The ruleset, as octoflow-ai's: no deleting or force-pushing the default branch, a pull request for every change
-(no approvals required), and CONTEXT passing on its head, which must be up to date with the default branch
+(no approvals required), and every CONTEXT passing on its head, which must be up to date with the default branch
 (strict), so that two pull requests that passed at the same moment cannot both merge unchecked against each other;
 nobody may bypass, so neither may an agent with your token.
-Run it once CI reports CONTEXT on pull requests. Before then nothing can merge. Rerunning replaces the rules of
+Run it once CI reports every CONTEXT on pull requests. Before then nothing can merge. Rerunning replaces the rules of
 an existing `ci-cd` ruleset with these.
 
 Needs a gh token with Administration: write on the repo. Exit status 1 with gh's error when a call fails.
@@ -42,9 +43,10 @@ def gh_api(*args: str, body: dict | None = None) -> str:
     return done.stdout
 
 
-def ruleset(check: str, app_id: int | None) -> dict:
-    """The ci-cd ruleset requiring check, from app_id when it is given."""
-    required = {"context": check} | ({"integration_id": app_id} if app_id is not None else {})
+def ruleset(checks: list[str], app_id: int | None) -> dict:
+    """The ci-cd ruleset requiring every one of checks, each from app_id when it is given."""
+    source = {"integration_id": app_id} if app_id is not None else {}
+    required = [{"context": c} | source for c in checks]
     return {
         "name": NAME,
         "target": "branch",
@@ -64,7 +66,7 @@ def ruleset(check: str, app_id: int | None) -> dict:
             }},
             {"type": "required_status_checks", "parameters": {
                 "do_not_enforce_on_create": False,
-                "required_status_checks": [required],
+                "required_status_checks": required,
                 "strict_required_status_checks_policy": True,
             }},
         ],
@@ -75,7 +77,7 @@ def main() -> int:
     """Create or update the ruleset; return the exit status."""
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("repo", metavar="OWNER/NAME")
-    p.add_argument("--check", required=True, metavar="CONTEXT")
+    p.add_argument("--check", required=True, action="append", metavar="CONTEXT")
     p.add_argument("--app-id", type=int, metavar="ID")
     a = p.parse_args()
     body = ruleset(a.check, a.app_id)

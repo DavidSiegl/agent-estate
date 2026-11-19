@@ -1,0 +1,130 @@
+# Merges a pull request into main, with a merge commit, once every check on its head commit
+# has passed, so a pull request lands without a human. This is the template's automerge.yml
+# (template/.github/workflows/automerge.yml.jinja, whose header has the trust model, the
+# update-branch rule and why AUTOMERGE_TOKEN), adapted to this repo's two workflows in place of
+# the template's one Gate: any one of them finishing may find the other still running, so it
+# merges only once every check run on the commit passed and every check the ci-cd ruleset
+# requires is among them. A change to the template's merge script belongs here too.
+# Held for a human: drafts, and pull requests labelled no-automerge, from forks, or into
+# another branch.
+#
+# The ruleset is set with: init/github-rules.py DavidSiegl/agent-estate --check
+# plugin-version --check tests --app-id 15368.
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: [Tests, Plugin version]
+    types: [completed]
+
+# The workflow's own token only reads the check runs, which AUTOMERGE_TOKEN's permissions
+# (the template's header) do not cover.
+permissions:
+  checks: read
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # No concurrency group: one would cancel a queued run when a third arrives, leaving a
+    # passed pull request unmerged. gh pr merge --match-head-commit makes parallel runs safe.
+    steps:
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          CHECKS_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # 1 when a pull request may have passed but was neither merged nor updated: a call failed.
+          failed=0
+          # The number of commits on main that $SHA does not contain.
+          behind_main() {
+            gh api "repos/$GH_REPO/compare/main...$SHA" --jq .behind_by
+          }
+
+          # Every check run on $SHA, latest per name, as "name<TAB>conclusion", where a run
+          # still going has an empty conclusion; and the checks main's rules require.
+          if ! runs=$(GH_TOKEN=$CHECKS_TOKEN gh api "repos/$GH_REPO/commits/$SHA/check-runs?filter=latest&per_page=100" \
+                 --jq '.check_runs[] | [.name, .conclusion // ""] | @tsv') ||
+             ! required=$(gh api "repos/$GH_REPO/rules/branches/main" \
+                 --jq '.[] | select(.type == "required_status_checks")
+                       | .parameters.required_status_checks[].context'); then
+            echo "::error::could not read the checks on $SHA or the rules of main"
+            exit 1
+          fi
+          waiting=$(awk -F'\t' '$2 == "" { print $1 }' <<<"$runs")
+          if [ -n "$waiting" ]; then
+            echo "$SHA: still running: $(tr '\n' ' ' <<<"$waiting"); the last to finish decides"
+            exit 0
+          fi
+          unpassed=$(awk -F'\t' '$2 != "success" && $2 != "skipped" && $2 != "neutral" { print $1 ": " $2 }' <<<"$runs")
+          for check in $required; do
+            awk -F'\t' -v c="$check" '$1 == c { found = 1 } END { exit !found }' <<<"$runs" ||
+              unpassed+=$'\n'"$check: missing"
+          done
+          unpassed=$(sed '/^$/d' <<<"$unpassed")
+          if [ -n "$unpassed" ]; then
+            echo "$SHA: held, not passed: $(tr '\n' ';' <<<"$unpassed")"
+            exit 0
+          fi
+
+          # From here as the template's: every open pull request whose head is the commit that passed.
+          if ! prs=$(gh api "repos/$GH_REPO/commits/$SHA/pulls" --jq '.[] | select(.state == "open") | .number'); then
+            echo "::error::could not list the pull requests at $SHA"
+            exit 1
+          fi
+          for pr in $prs; do
+            if ! fields=$(gh pr view "$pr" \
+              --json headRefOid,headRefName,baseRefName,isDraft,isCrossRepository,labels \
+              --jq '[.headRefOid, .headRefName, .baseRefName, .isDraft, .isCrossRepository,
+                     any(.labels[]; .name == "no-automerge")] | @tsv'); then
+              echo "::error::#$pr: could not read it"
+              failed=1
+              continue
+            fi
+            IFS=$'\t' read -r head branch base draft fork held <<<"$fields"
+            if [ "$head" != "$SHA" ]; then
+              echo "#$pr: its head moved on from $SHA; that commit's own checks decide"
+              continue
+            elif [ "$base" != main ] || [ "$draft" = true ] || [ "$fork" = true ] || [ "$held" = true ]; then
+              echo "#$pr: held (base $base, draft $draft, fork $fork, no-automerge $held)"
+              continue
+            fi
+            if ! behind=$(behind_main); then
+              echo "::error::#$pr: could not compare $SHA with main"
+              failed=1
+              continue
+            fi
+            if [ "$behind" = 0 ]; then
+              if gh pr merge "$pr" --merge --match-head-commit "$SHA"; then
+                echo "#$pr: merged"
+                gh api --method DELETE "repos/$GH_REPO/git/refs/heads/$branch" ||
+                  echo "::warning::#$pr: merged, but its branch $branch was not deleted"
+                continue
+              fi
+              # The other workflow's run may have merged it first, when both finished at once.
+              if [ "$(gh pr view "$pr" --json state --jq .state)" = MERGED ]; then
+                echo "#$pr: already merged"
+                continue
+              fi
+              # The ruleset refuses a merge once main has moved on, as when another pull
+              # request merged since the comparison above: then it needs the update below.
+              if ! behind=$(behind_main) || [ "$behind" = 0 ]; then
+                echo "::error::#$pr: merge failed"
+                failed=1
+                continue
+              fi
+            fi
+            if gh api --method PUT "repos/$GH_REPO/pulls/$pr/update-branch" \
+                 -f expected_head_sha="$SHA" >/dev/null; then
+              echo "#$pr: $behind commits behind main; updated, and the checks of its new head decide"
+            else
+              echo "::error::#$pr: $behind commits behind main, and updating it failed (a conflict waits for a human)"
+              failed=1
+            fi
+          done
+          exit "$failed"
