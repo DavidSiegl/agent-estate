@@ -77,15 +77,15 @@ export default async function (pi: ExtensionAPI) {
 	}
 
 	// Puts hook context in the session for the model's next request without
-	// starting a turn of its own, as in Claude Code: at once when pi is idle, at
-	// the end of the turn while it runs. beforeRetry: pi continues the run right
-	// away (an overflow compaction's retry), which must see it, so it is steered
-	// into that run instead.
-	function addContext(context: string[], beforeRetry = false): void {
+	// starting a turn of its own, as in Claude Code: at once when pi is idle,
+	// before the prompt while a run is starting, at the end of the turn while one
+	// runs. runContinues: pi goes on with the run right after this event, and its
+	// next request must carry the context, so it is steered into that run instead.
+	function addContext(context: string[], runContinues = false): void {
 		if (context.length === 0) return;
 		pi.sendMessage(
 			{ customType: "agent-estate-hooks", content: context.join("\n\n"), display: false },
-			beforeRetry ? undefined : { triggerTurn: false },
+			runContinues ? undefined : { triggerTurn: false },
 		);
 	}
 
@@ -113,7 +113,10 @@ export default async function (pi: ExtensionAPI) {
 	});
 
 	pi.on("session_compact", async (event, ctx) => {
-		addContext((await run(ctx, { hook_event_name: "SessionStart", source: "compact" })).context, event.willRetry);
+		const { context } = await run(ctx, { hook_event_name: "SessionStart", source: "compact" });
+		// After an automatic compaction pi continues the run to retry an overflowed
+		// request, or to answer messages the user queued meanwhile.
+		addContext(context, event.willRetry || ctx.hasPendingMessages());
 	});
 
 	pi.on("input", async (event, ctx) => {
