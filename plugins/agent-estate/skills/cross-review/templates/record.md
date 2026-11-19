@@ -24,7 +24,7 @@ Passes: <not yet reviewed>
 
 Severity: <blocking / should-fix / nit>
 File: <path>:<line>
-Pass: <the pass that raised it: brz:pg-ops-reviewer, brz:jenkins-lint, /code-review, spec-conformance>
+Pass: <the pass that raised it: /code-review, spec-conformance>
 Failure: <what goes wrong when the code runs, not which rule was broken>
 Disposition: open
 
