@@ -9,6 +9,8 @@ Explore the codebase to answer "how does X work?" questions. Produce architectur
 
 Every spawn is an `Agent` subagent with `subagent_type: "general-purpose"`. Their prompts (`references/`) tell them to read the code and change nothing.
 
+pi has no subagents. There, each spawn is a separate `pi -p --no-session "<prompt>"` run from bash in the repo, and the explorers of step 2 run concurrently (`&`, then `wait`), each writing its findings to its own file in a temporary directory.
+
 ## 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.

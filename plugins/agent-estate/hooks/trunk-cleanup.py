@@ -26,8 +26,8 @@ reason, otherwise:
     than .claude/ (a tool's own worktrees, such as .orchestrator/worktrees/,
     are the tool's to remove);
   - no process has its cwd inside it (read from /proc; without /proc every
-    worktree is kept), and no Claude transcript of a session started in it was
-    written in the last LIVE_SESSION_SECONDS;
+    worktree is kept), and no Claude Code or pi session started in it was
+    written to in the last LIVE_SESSION_SECONDS;
   - `git status --ignored` shows no change, no untracked file, and no ignored
     path outside REGENERABLE.
 The main checkout is never removed. Worktree records whose directory is gone
@@ -171,8 +171,10 @@ def project_dir_name(path):
 
 
 def recent_session(path, now):
-    """True when a Claude transcript of a session started at path was written
-    in the last LIVE_SESSION_SECONDS."""
+    """True when a Claude Code transcript or a pi session file of a session
+    started at path was written in the last LIVE_SESSION_SECONDS. pi sessions
+    are looked for only where pi keeps them by default, under
+    $PI_CODING_AGENT_DIR (~/.pi/agent) and not in a sessionDir set elsewhere."""
     config = os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude"
     projects = Path(config) / "projects"
     name = project_dir_name(path)
@@ -180,9 +182,18 @@ def recent_session(path, now):
         dirs = [d for d in projects.iterdir()
                 if d.name == name or (name.endswith("-") and d.name.startswith(name))]
     except OSError:
-        return False
+        dirs = []
+    dirs.append(pi_session_dir(path))
     return any(now - f.stat().st_mtime < LIVE_SESSION_SECONDS
                for d in dirs for f in d.rglob("*.jsonl"))
+
+
+def pi_session_dir(path):
+    """pi's default session directory for a session started at path
+    (getDefaultSessionDirPath in pi-coding-agent's dist/core/session-manager.js)."""
+    agent = os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent"
+    name = "--" + re.sub(r"[/\\:]", "-", re.sub(r"^[/\\]", "", str(path))) + "--"
+    return Path(agent).expanduser() / "sessions" / name
 
 
 def process_cwds():
@@ -229,7 +240,7 @@ def keep_reason(wt, main, judge, cwds, now):
     if any(c.is_relative_to(wt.path) for c in cwds):
         return "a process is working in it"
     if recent_session(wt.path, now):
-        return "a Claude session used it in the last day"
+        return "a Claude Code or pi session used it in the last day"
     work = unsaved_work(wt.path)
     if work:
         return f"unsaved work: {work}"
