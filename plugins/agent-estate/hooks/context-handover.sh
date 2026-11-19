@@ -13,7 +13,8 @@
 #                                process belongs. For the skill, from Bash.
 #   context-handover.sh clear    For the skill, from Bash, once the handover is
 #                                written. Inside herdr, starts a detached job
-#                                that waits for the turn to end, sends /clear,
+#                                that waits for the turn to end, sends /clear
+#                                (/new in pi, whose bash sets PI_SESSION_ID),
 #                                and once `restore` has injected the handover
 #                                prompts the fresh context to continue; prints
 #                                where it logs and exits 0. Exits 1, with the
@@ -40,7 +41,9 @@
 #     and another every 50000 tokens above it.
 #
 # A handover is keyed by $CLAUDE_PID, not session_id: /clear starts a new session
-# in the same process, so the pid is what both sides of the /clear share.
+# in the same process, so the pid is what both sides of the /clear share. In pi,
+# the agent-estate extension (pi/index.ts) sets it, and writes the token file the
+# status line writes in Claude Code.
 #
 # nudge and restore fail open: any unexpected state exits 0 with no output.
 set -uo pipefail
@@ -115,24 +118,27 @@ restore() {
 
 clear_schedule() {
     local file log
-    file=$(handover_path) || { echo "context-handover: CLAUDE_PID unset; not inside Claude Code" >&2; return 1; }
+    file=$(handover_path) || { echo "context-handover: CLAUDE_PID unset; not inside Claude Code or pi with agent-estate" >&2; return 1; }
     [ -s "$file" ] || { echo "context-handover: no handover at $file; write it first" >&2; return 1; }
     if [ "${HERDR_ENV:-}" != 1 ] || [ -z "${HERDR_PANE_ID:-}" ] || ! command -v herdr >/dev/null; then
         echo "context-handover: not in a herdr pane; the user must /clear" >&2
         return 1
     fi
     log="${file%.md}.clear.log"
+    local command=/clear
+    [ -z "${PI_SESSION_ID:-}" ] || command=/new
     # setsid: the job must outlive the Bash tool call that starts it.
-    setsid -f "$0" clear-job "$HERDR_PANE_ID" "$file" </dev/null >>"$log" 2>&1 || {
+    setsid -f "$0" clear-job "$HERDR_PANE_ID" "$file" "$command" </dev/null >>"$log" 2>&1 || {
         echo "context-handover: could not start the clear job" >&2
         return 1
     }
     echo "auto-clear scheduled for herdr pane $HERDR_PANE_ID once this turn ends; log at $log"
 }
 
-# clear_job pane file: the detached half of `clear`. Logs each step on stdout.
+# clear_job pane file command: the detached half of `clear`; command is the
+# harness's /clear. Logs each step on stdout.
 clear_job() {
-    local pane=$1 file=$2 state i
+    local pane=$1 file=$2 command=$3 state i
     say() { printf '%s %s\n' "$(date -Is)" "$*"; }
     fail() {
         say "FAILED: $*"
@@ -151,14 +157,14 @@ clear_job() {
         *) fail "agent is '$state', not ready for input" ;;
     esac
 
-    say "sending /clear"
-    herdr agent prompt "$pane" /clear >/dev/null 2>&1 || fail "herdr could not send /clear"
+    say "sending $command"
+    herdr agent prompt "$pane" "$command" >/dev/null 2>&1 || fail "herdr could not send $command"
     # restore moves the handover aside once it has injected it.
     for i in $(seq 120); do
         [ -e "$file" ] || break
         sleep 0.5
     done
-    [ ! -e "$file" ] || fail "/clear sent but the handover was not loaded within 60s"
+    [ ! -e "$file" ] || fail "$command sent but the handover was not loaded within 60s"
 
     # Other SessionStart hooks may still be running; ticket-sync takes up to 120s.
     herdr agent wait "$pane" --timeout 180000 >/dev/null 2>&1 || fail "the fresh context did not become ready"
@@ -172,11 +178,11 @@ case "${1:-}" in
     nudge)   nudge ;;
     restore) restore ;;
     path)
-        handover_path || { echo "context-handover: CLAUDE_PID unset; not inside Claude Code" >&2; exit 1; }
+        handover_path || { echo "context-handover: CLAUDE_PID unset; not inside Claude Code or pi with agent-estate" >&2; exit 1; }
         mkdir -p "$store" || exit 1
         ;;
     clear)     clear_schedule || exit 1 ;;
-    clear-job) clear_job "$2" "$3" ;;
+    clear-job) clear_job "$2" "$3" "$4" ;;
     *) echo "usage: context-handover.sh nudge|restore|path|clear" >&2; exit 1 ;;
 esac
 exit 0

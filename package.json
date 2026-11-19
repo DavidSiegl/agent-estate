@@ -1,0 +1,14 @@
+{
+  "name": "agent-estate",
+  "private": true,
+  "description": "The agent-estate plugin's skills and hooks as a pi package.",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "pi": {
+    "skills": ["./plugins/agent-estate/skills"],
+    "extensions": ["./plugins/agent-estate/pi/index.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
