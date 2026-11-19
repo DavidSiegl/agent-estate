@@ -31,6 +31,14 @@ as step 4 says and do not stop, clear or notify again.
      what done looks like.
    - **State**: repo, branch, last commit, uncommitted changes and why they are
      uncommitted.
+   - **Running**: every background task you started that has not sent its
+     completion notice (a `run_in_background` command, a background agent, a
+     `Monitor`), each with its task id, what it does, its output or log file,
+     and what to do with its result. Stop with `TaskStop` any whose result no
+     longer matters, and leave it out. A task outlives `/clear`, and its notice
+     arrives in the next context, so write the wait as "wait for the
+     completion notice of task `<id>`", never as a process to find with
+     `pgrep` or poll with `kill -0`. Write "none" when nothing runs.
    - **Done**: what is finished and how it was verified.
    - **Next**: the ordered remaining steps, the first one concrete enough to
      start on without rereading anything.
