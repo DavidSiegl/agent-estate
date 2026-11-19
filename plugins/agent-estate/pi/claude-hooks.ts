@@ -41,7 +41,7 @@ export interface HookOutcome {
 	context: string[];
 	/** One line per hook that failed (exit status other than 0 and 2, a timeout, or a command that would not start), for the user; a failed hook decides nothing. */
 	errors: string[];
-	/** SessionStart only: variables the hooks exported through CLAUDE_ENV_FILE, which every later shell command of the session must see. Empty otherwise. */
+	/** SessionStart only: variables the hooks exported through CLAUDE_ENV_FILE, which the agent's later shell commands in the session must see (Claude Code gives them to its Bash tool alone). Empty otherwise. */
 	env: Record<string, string>;
 }
 

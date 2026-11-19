@@ -41,8 +41,10 @@ export default async function (pi: ExtensionAPI) {
 	process.env.CLAUDE_PLUGIN_ROOT = pluginRoot;
 	process.env.CLAUDE_PID = String(process.pid);
 
-	// What SessionStart hooks exported, latest value per name, for the agent's bash.
-	const sessionExports: Record<string, string> = {};
+	// What SessionStart hooks exported in this pi process, latest value per name,
+	// for the agent's bash. Kept on globalThis because a /reload builds a new
+	// instance of this extension and does not run SessionStart again.
+	const sessionExports: Record<string, string> = ((globalThis as any)[Symbol.for("agent-estate.sessionExports")] ??= {});
 	// PreToolUse context by tool call id, held until that call's result exists to carry it.
 	const preToolContext = new Map<string, string[]>();
 	// True once the user was told the context size cannot be written.
@@ -74,11 +76,17 @@ export default async function (pi: ExtensionAPI) {
 		return outcome;
 	}
 
-	// Into the session at once when pi is idle, at the end of the turn otherwise;
-	// the model reads it on its next request either way, and it survives a reload.
-	function addContext(context: string[]): void {
+	// Puts hook context in the session for the model's next request without
+	// starting a turn of its own, as in Claude Code: at once when pi is idle, at
+	// the end of the turn while it runs. beforeRetry: pi continues the run right
+	// away (an overflow compaction's retry), which must see it, so it is steered
+	// into that run instead.
+	function addContext(context: string[], beforeRetry = false): void {
 		if (context.length === 0) return;
-		pi.sendMessage({ customType: "agent-estate-hooks", content: context.join("\n\n"), display: false });
+		pi.sendMessage(
+			{ customType: "agent-estate-hooks", content: context.join("\n\n"), display: false },
+			beforeRetry ? undefined : { triggerTurn: false },
+		);
 	}
 
 	// context-handover.sh's nudge reads the context size from the file Claude
@@ -97,14 +105,15 @@ export default async function (pi: ExtensionAPI) {
 	}
 
 	pi.on("session_start", async (event, ctx) => {
-		// A reload replaces this extension, not the session: its start already ran.
+		// A reload replaces this extension, not the session: its start already ran,
+		// and sessionExports kept what it exported.
 		if (event.reason === "reload") return;
 		const source = event.reason === "new" ? "clear" : event.reason === "startup" ? "startup" : "resume";
 		addContext((await run(ctx, { hook_event_name: "SessionStart", source })).context);
 	});
 
-	pi.on("session_compact", async (_event, ctx) => {
-		addContext((await run(ctx, { hook_event_name: "SessionStart", source: "compact" })).context);
+	pi.on("session_compact", async (event, ctx) => {
+		addContext((await run(ctx, { hook_event_name: "SessionStart", source: "compact" })).context, event.willRetry);
 	});
 
 	pi.on("input", async (event, ctx) => {
@@ -154,11 +163,13 @@ function claudeTool(toolName: string, input: Record<string, unknown>, cwd: strin
  * The absolute file a pi file tool's path argument names, by pi's rules
  * (resolveToCwd in pi-coding-agent's dist/core/tools/path-utils.js, not
  * exported): unicode spaces read as plain ones, a leading `@` is dropped, `~`
- * is the home directory, and a relative path is relative to cwd.
+ * is the home directory, a `file://` URL is its path, and a relative path is
+ * relative to cwd.
  */
 function toolPath(path: string, cwd: string): string {
-	const plain = path.replace(/[  -   　]/g, " ");
-	return resolve(cwd, expandTilde(plain.startsWith("@") ? plain.slice(1) : plain));
+	const plain = path.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ");
+	const expanded = expandTilde(plain.startsWith("@") ? plain.slice(1) : plain);
+	return resolve(cwd, expanded.startsWith("file://") ? fileURLToPath(expanded) : expanded);
 }
 
 /** path with a leading `~` or `~/` read as the home directory; any other path unchanged. */

@@ -114,7 +114,7 @@ test("SessionStart hooks export variables through CLAUDE_ENV_FILE", async () => 
 	assert.deepEqual(out.env, { HOOK_TEST_A: "one", HOOK_TEST_B: "two words" });
 });
 
-test("a CLAUDE_ENV_FILE that cannot be read is an error, not an empty export", async () => {
+test("a CLAUDE_ENV_FILE that cannot be read is an error, not an empty export", { skip: process.getuid?.() === 0 && "root reads a mode-000 file" }, async () => {
 	const root = await plugin(
 		{ SessionStart: [{ hooks: [cmd("env.sh")] }] },
 		{ "env.sh": `echo 'export HOOK_TEST_A=one' >>"$CLAUDE_ENV_FILE"; chmod 000 "$CLAUDE_ENV_FILE"` },
