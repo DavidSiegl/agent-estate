@@ -1,14 +1,13 @@
 ---
 name: cross-review
-description: Run a branch past a reviewer that is a different Claude session, and record the verdict where it survives a /clear — opening a review record, running the reviewer from a fresh context, and adjudicating its findings. Use before pushing a dev branch, when the review gate refuses a push, when asked to review work another session implemented, or when a review record under `.scratch/reviews/` needs a verdict. Distinct from the review passes themselves (`/code-review`); this is who runs them and what closes them.
+description: Run a branch past a reviewer that is a different Claude session, and record the verdict where it survives a /clear — opening a review record, running the reviewer from a fresh context, and adjudicating its findings. Use before pushing a dev branch, when the review gate refuses a push, when asked to review work another session implemented, or when a review record under `.scratch/reviews/` needs a verdict. Distinct from the review passes themselves (`/code-review` and spec conformance); this is who runs them and what closes them.
 ---
 
 # Cross-session review
 
 The review passes answer *how* a branch is reviewed — `/code-review` and a
-spec-conformance pass. This answers
-*who* reviews it, *where the verdict lives*, and *what it takes to close a
-finding*.
+spec-conformance pass. This answers *who* reviews it, *where the verdict
+lives*, and *what it takes to close a finding*.
 
 ## Why a record, and why a second session
 
@@ -66,7 +65,7 @@ lowers it.
 
 | Stakes | When | Round 1 | A later round records |
 |---|---|---|---|
-| `high` | production data, security, a deploy, a check that fails builds or refuses pushes | every pass the diff earns, `/code-review high` | `blocking` and `should-fix` |
+| `high` | production data, security, a deploy, a check that fails builds or refuses pushes | `/code-review high` | `blocking` and `should-fix` |
 | `normal` | any other code that runs | `/code-review high` | `blocking` only |
 | `low` | output that only informs (a report-only check, a log line), docs, a tool only the user runs | `/code-review medium` | `blocking` only |
 
@@ -98,7 +97,7 @@ invisible to it, and a review of a tree that has since moved is worse than none.
 ROOT=$(git rev-parse --show-toplevel) || exit 1   # not a repo: there is nothing to gate
 # The records' home: the main checkout's, also when ROOT is a linked worktree.
 REVIEWS=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.scratch/reviews
-BASE=$(git merge-base HEAD origin/dev)   # or this repo's review base
+BASE=$(git merge-base HEAD origin/HEAD)  # the default branch; name the PR's base if it is another
 mkdir -p "$REVIEWS"
 git diff --name-only "$BASE"
 ```
@@ -109,8 +108,7 @@ branch lives in, not beside them.
 
 Fill in `Base`, `Stakes`, `Files`, `Tickets`, and nothing else. **Facts only — no summary
 of what you did or why.** The framing is precisely what the isolation exists to
-keep out, and it matters more here than for a subagent, because this record
-is all the reviewer gets.
+keep out, because this record is all the reviewer gets.
 
 Then launch the reviewer yourself and wait for it. A headless `claude -p` started
 from the Bash tool is a separate invocation with a fresh context, which is all
@@ -126,7 +124,7 @@ cd "$ROOT" && claude -p "/cross-review $REVIEWS/NN-<slug>.md" \
 
 Run it with `run_in_background: true`, so the harness wakes you when it exits,
 and with the sandbox disabled: the nested CLI needs the API and its own
-`~/.claude` state. A review that fans out to the ops passes takes about four minutes.
+`~/.claude` state. A review takes several minutes, longer at `high` stakes.
 
 Details in that line, each of which fails loudly if you get it wrong:
 

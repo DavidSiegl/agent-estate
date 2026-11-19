@@ -2,7 +2,7 @@
 
 Repo: <repo>
 Branch: <branch>
-Base: <base-sha> (<review-base ref, e.g. origin/dev>)
+Base: <base-sha> (<review-base ref, e.g. origin/main>)
 Stakes: <high / normal / low> (<the spec or ticket fact that sets it>)
 Head: <not yet reviewed>
 Verdict: requested
