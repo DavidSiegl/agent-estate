@@ -196,11 +196,11 @@ background tasks; give the bash call a timeout of 20 minutes):
 LOG=<your scratchpad>/review-NN.jsonl
 cd "$ROOT" && pi -p --mode json --no-session --tools read,grep,find,ls,bash,edit \
   "/skill:cross-review $REVIEWS/NN-<slug>.md" > "$LOG" 2> "$LOG.err"
-jq -r 'select(.type=="agent_end") | .messages[-1] | "\(.stopReason) \(.errorMessage // "-")"' "$LOG"
+jq -nr '[inputs | select(.type=="agent_end")] | last | .messages[-1] | "\(.stopReason) \(.errorMessage // "-")"' "$LOG"
 ```
 
 `pi -p` exits 0 even when the model call failed; the run failed when that line
-starts with `error` (a 429 is a rate limit: wait and relaunch), or when `Head:`
+(the last attempt's: pi retries some failures itself) starts with `error` (a 429 is a rate limit: wait and relaunch), or when `Head:`
 in the record is not the sha you asked for. `--tools` is the allowlist, but pi
 has no per-path rule like `Edit(/$REVIEWS/**)`: the reviewer's read-only rule
 rests on this skill's instruction alone. `--model <provider/id>` picks the

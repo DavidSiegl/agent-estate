@@ -211,6 +211,7 @@ so the rule that the implementer leaves `spec.md` alone rests on this skill's
 instruction alone:
 
 ```bash
+LOG=<your scratchpad>/triad-$(basename "$TICKET" .md)
 impl=$(cat /proc/sys/kernel/random/uuid)
 pi -p --mode json --session-id "$impl" --tools read,grep,find,ls,bash,edit,write \
   "/skill:triad implement $TICKET" > "$LOG.impl" || exit 1
