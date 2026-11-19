@@ -81,11 +81,18 @@ export async function loadHooks(pluginRoot: string): Promise<RunHooks> {
 	}
 
 	return async (input) => {
+		const outcome: HookOutcome = { context: [], errors: [], env: {} };
 		const target = input.hook_event_name === "SessionStart" ? input.source : input.tool_name;
 		const hooks = (events[input.hook_event_name] ?? [])
-			.filter((g) => matches(g.matcher, target))
+			.filter((g) => {
+				try {
+					return matches(g.matcher, target);
+				} catch (e) {
+					outcome.errors.push(`${input.hook_event_name} matcher ${JSON.stringify(g.matcher)}: ${(e as Error).message}`);
+					return false;
+				}
+			})
 			.flatMap((g) => g.hooks.filter((h) => h.type === "command"));
-		const outcome: HookOutcome = { context: [], errors: [], env: {} };
 		if (hooks.length === 0) return outcome;
 
 		const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PLUGIN_ROOT: pluginRoot, CLAUDE_PROJECT_DIR: input.cwd };
@@ -114,6 +121,7 @@ export async function loadHooks(pluginRoot: string): Promise<RunHooks> {
  * everything; letters, digits, `_` and `|` alone are an exact name or a list of
  * them; anything else is a regular expression, which must match somewhere in
  * target. An undefined target (an event without one) matches every matcher.
+ * Throws when matcher is neither and does not compile as a regular expression.
  */
 function matches(matcher: string | undefined, target: string | undefined): boolean {
 	if (!matcher || matcher === "*" || target === undefined) return true;
@@ -206,7 +214,14 @@ function judge(command: string, run: CommandRun, event: HookEventName, outcome: 
  * errors and gives an empty record.
  */
 async function exported(envFile: string, env: NodeJS.ProcessEnv, errors: string[]): Promise<Record<string, string>> {
-	const text = await readFile(envFile, "utf8").catch(() => "");
+	let text: string;
+	try {
+		text = await readFile(envFile, "utf8");
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
+		errors.push(`reading CLAUDE_ENV_FILE: ${(e as Error).message}`);
+		return {};
+	}
 	if (!text.trim()) return {};
 	const run = await runCommand(
 		{ type: "command", command: `set -a; . "$CLAUDE_ENV_FILE" && env -0`, timeout: 10 },

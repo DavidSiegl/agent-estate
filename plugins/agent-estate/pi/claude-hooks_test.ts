@@ -114,6 +114,28 @@ test("SessionStart hooks export variables through CLAUDE_ENV_FILE", async () => 
 	assert.deepEqual(out.env, { HOOK_TEST_A: "one", HOOK_TEST_B: "two words" });
 });
 
+test("a CLAUDE_ENV_FILE that cannot be read is an error, not an empty export", async () => {
+	const root = await plugin(
+		{ SessionStart: [{ hooks: [cmd("env.sh")] }] },
+		{ "env.sh": `echo 'export HOOK_TEST_A=one' >>"$CLAUDE_ENV_FILE"; chmod 000 "$CLAUDE_ENV_FILE"` },
+	);
+	const out = await (await loadHooks(root))({ hook_event_name: "SessionStart", session_id: "s", cwd: tmpdir(), source: "startup" });
+	assert.deepEqual(out.env, {});
+	assert.equal(out.errors.length, 1);
+	assert.match(out.errors[0], /CLAUDE_ENV_FILE/);
+});
+
+test("a matcher that is not a valid regex is an error, and the other groups still run", async () => {
+	const root = await plugin(
+		{ PreToolUse: [{ matcher: "Bash(", hooks: [cmd("no.sh")] }, { matcher: "Bash", hooks: [cmd("no.sh")] }] },
+		{ "no.sh": `echo refused >&2; exit 2` },
+	);
+	const out = await (await loadHooks(root))(tool("PreToolUse", "Bash", {}));
+	assert.equal(out.refusal, "refused");
+	assert.equal(out.errors.length, 1);
+	assert.match(out.errors[0], /Bash\(/);
+});
+
 test("hooks.json that cannot be read rejects", async () => {
 	await assert.rejects(loadHooks(join(tmpdir(), "no-such-plugin")), /hooks\.json/);
 });

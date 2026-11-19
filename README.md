@@ -183,6 +183,9 @@ What differs from Claude Code:
   the reviewer's write scope has a counterpart there.
 - The extension writes the context handover's token count itself; no status line is needed. `/new` is pi's
   `/clear`.
+- The extension replaces pi's `bash` tool with the same tool plus the variables the SessionStart hooks export
+  (the review gate's `core.hooksPath`), so they reach the agent's commands and not your own `!` ones. Another
+  extension that replaces `bash` too would cancel one of the two.
 - Skills are not namespaced: `/skill:cross-review`. The mattpocock skills the table below names install the same
   way from `git:github.com/mattpocock/skills`.
 
