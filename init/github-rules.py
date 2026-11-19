@@ -4,8 +4,8 @@ once CI's checks passed.
 
     github-rules.py OWNER/NAME --check CONTEXT [--check CONTEXT ...] [--app-id ID]
 
-Each CONTEXT is a status or check CI reports on a pull request, and every one must pass: `continuous-integration/jenkins/pr-head` for the
-template's Jenkins job, `gate` for its GitHub Actions workflow. ID is the GitHub App the check must come from, so
+Each CONTEXT is a status or check CI reports on a pull request, and every one must pass:
+`continuous-integration/jenkins/pr-head` for the template's Jenkins job, `gate` for its GitHub Actions workflow. ID is the GitHub App the check must come from, so
 that a status posted with anyone else's token does not count: the id of the GitHub App your Jenkins posts statuses
 with (its settings page shows it), or GitHub Actions, 15368. It applies to every CONTEXT. Without it, any source
 satisfies a check.

@@ -1,10 +1,15 @@
-# Merges a pull request into main, with a merge commit, once every check on its head commit
-# has passed, so a pull request lands without a human. This is the template's automerge.yml
+# Merges a pull request into main, with a merge commit, once every check run the ci-cd ruleset
+# requires has passed on its head commit and no other check run there failed, so a pull
+# request lands without a human. This is the template's automerge.yml
 # (template/.github/workflows/automerge.yml.jinja, whose header has the trust model, the
 # update-branch rule and why AUTOMERGE_TOKEN), adapted to this repo's two workflows in place of
-# the template's one Gate: any one of them finishing may find the other still running, so it
-# merges only once every check run on the commit passed and every check the ci-cd ruleset
-# requires is among them. A change to the template's merge script belongs here too.
+# the template's one Gate. Each run of either may find the other's check still going; it then
+# leaves the merge to that one's run. So a check the ruleset requires must come from a
+# workflow in `workflows:` below, or nothing runs once it passes. Two runs for one commit can
+# also both reach the merge; the loser finds the pull request merged or updated and says so.
+# Commit statuses are not read: nothing here posts one. The merge loop is a copy of the
+# template's (TODO.md).
+#
 # Held for a human: drafts, and pull requests labelled no-automerge, from forks, or into
 # another branch.
 #
@@ -45,9 +50,21 @@ jobs:
           behind_main() {
             gh api "repos/$GH_REPO/compare/main...$SHA" --jq .behind_by
           }
+          # Succeeds, saying why, when pull request $1 no longer needs this run: another run
+          # merged it, or updated it so its head is no longer $SHA. Fails when it still does,
+          # or cannot be read.
+          settled() {
+            local now
+            now=$(gh pr view "$1" --json state,headRefOid --jq '[.state, .headRefOid] | @tsv') || return 1
+            case $now in
+              MERGED*) echo "#$1: already merged" ;;
+              *$'\t'"$SHA") return 1 ;;
+              *) echo "#$1: its head moved on from $SHA; that commit's own checks decide" ;;
+            esac
+          }
 
           # Every check run on $SHA, latest per name, as "name<TAB>conclusion", where a run
-          # still going has an empty conclusion; and the checks main's rules require.
+          # still going has an empty conclusion; and the checks main's rules require, one a line.
           if ! runs=$(GH_TOKEN=$CHECKS_TOKEN gh api "repos/$GH_REPO/commits/$SHA/check-runs?filter=latest&per_page=100" \
                  --jq '.check_runs[] | [.name, .conclusion // ""] | @tsv') ||
              ! required=$(gh api "repos/$GH_REPO/rules/branches/main" \
@@ -56,17 +73,21 @@ jobs:
             echo "::error::could not read the checks on $SHA or the rules of main"
             exit 1
           fi
-          waiting=$(awk -F'\t' '$2 == "" { print $1 }' <<<"$runs")
-          if [ -n "$waiting" ]; then
-            echo "$SHA: still running: $(tr '\n' ' ' <<<"$waiting"); the last to finish decides"
-            exit 0
-          fi
-          unpassed=$(awk -F'\t' '$2 != "success" && $2 != "skipped" && $2 != "neutral" { print $1 ": " $2 }' <<<"$runs")
-          for check in $required; do
-            awk -F'\t' -v c="$check" '$1 == c { found = 1 } END { exit !found }' <<<"$runs" ||
-              unpassed+=$'\n'"$check: missing"
-          done
-          unpassed=$(sed '/^$/d' <<<"$unpassed")
+          # A required check still going: its workflow's own run decides.
+          while IFS= read -r check; do
+            [ -n "$check" ] || continue
+            state=$(awk -F'\t' -v c="$check" '$1 == c { print ($2 == "" ? "running" : $2); found = 1 }
+                                              END { if (!found) print "missing" }' <<<"$runs")
+            if [ "$state" = running ]; then
+              echo "$SHA: $check is still running; its run decides"
+              exit 0
+            elif [ "$state" != success ]; then
+              echo "$SHA: held, required check $check: $state"
+              exit 0
+            fi
+          done <<<"$required"
+          # Any check run that finished without passing holds it, required or not.
+          unpassed=$(awk -F'\t' '$2 != "" && $2 != "success" && $2 != "skipped" && $2 != "neutral" { print $1 ": " $2 }' <<<"$runs")
           if [ -n "$unpassed" ]; then
             echo "$SHA: held, not passed: $(tr '\n' ';' <<<"$unpassed")"
             exit 0
@@ -106,11 +127,7 @@ jobs:
                   echo "::warning::#$pr: merged, but its branch $branch was not deleted"
                 continue
               fi
-              # The other workflow's run may have merged it first, when both finished at once.
-              if [ "$(gh pr view "$pr" --json state --jq .state)" = MERGED ]; then
-                echo "#$pr: already merged"
-                continue
-              fi
+              settled "$pr" && continue
               # The ruleset refuses a merge once main has moved on, as when another pull
               # request merged since the comparison above: then it needs the update below.
               if ! behind=$(behind_main) || [ "$behind" = 0 ]; then
@@ -122,7 +139,7 @@ jobs:
             if gh api --method PUT "repos/$GH_REPO/pulls/$pr/update-branch" \
                  -f expected_head_sha="$SHA" >/dev/null; then
               echo "#$pr: $behind commits behind main; updated, and the checks of its new head decide"
-            else
+            elif ! settled "$pr"; then
               echo "::error::#$pr: $behind commits behind main, and updating it failed (a conflict waits for a human)"
               failed=1
             fi

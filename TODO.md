@@ -28,6 +28,11 @@
   GATE_OUTPUTS['own'] does not gitignore the `test-results*.xml` the own-gate header invites", so a repo whose gate
   writes them shows them as untracked files after every run. Closes when GATE_OUTPUTS['own'] lists `test-results*.xml`
   and `apply.py`'s test covers it.
+- **This repo's `automerge.yml` copies the template's merge loop.** Review 09, F5: the loop that merges or updates a
+  pull request in `.github/workflows/automerge.yml` is the one in
+  `template/.github/workflows/automerge.yml.jinja`, kept in step only by a comment, and the fixes for two runs racing
+  on one commit (`settled`) exist only in this repo's copy. Closes when both take the loop from one file (a script
+  the template renders and this repo runs), or a test fails when they differ.
 
 ### ticket-sync
 
