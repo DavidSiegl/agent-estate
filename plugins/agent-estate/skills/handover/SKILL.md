@@ -6,7 +6,8 @@ argument-hint: "[note for the next context]"
 
 # Handover
 
-The next context starts with nothing but this file, `CLAUDE.md` and the repo.
+The next context starts with nothing but this file, `CLAUDE.md`, the repo and
+the completion notices of background tasks still running (see **Running**).
 The handover is the bridge: everything the work needs that the repo and git do
 not already hold. `${CLAUDE_PLUGIN_ROOT}/hooks/context-handover.sh` (its header has the
 mechanics) injects it into the session after `/clear`, once.
@@ -31,14 +32,19 @@ as step 4 says and do not stop, clear or notify again.
      what done looks like.
    - **State**: repo, branch, last commit, uncommitted changes and why they are
      uncommitted.
-   - **Running**: every background task you started that has not sent its
-     completion notice (a `run_in_background` command, a background agent, a
-     `Monitor`), each with its task id, what it does, its output or log file,
-     and what to do with its result. Stop with `TaskStop` any whose result no
-     longer matters, and leave it out. A task outlives `/clear`, and its notice
-     arrives in the next context, so write the wait as "wait for the
+   - **Running**: every background task whose result the work still waits
+     on and whose completion notice has not arrived: a `run_in_background`
+     command, a background agent, a `Monitor`, whether you started it or the
+     previous handover's **Running** carried it in. Give each its task id,
+     what it does, its output or log file, and what to do with its result.
+     Stop with `TaskStop` (deferred: load it through ToolSearch) any whose
+     result no longer matters, leave it out, and name under **State** any
+     files it left behind. A background command outlives `/clear` and its
+     notice arrives in the next context, so write that wait as "wait for the
      completion notice of task `<id>`", never as a process to find with
-     `pgrep` or poll with `kill -0`. Write "none" when nothing runs.
+     `pgrep` or poll with `kill -0`. Nobody has yet seen an agent's or a
+     `Monitor`'s notice cross a clear, so for those add "if no notice comes,
+     read `<output file>`". Write "none" when nothing runs.
    - **Done**: what is finished and how it was verified.
    - **Next**: the ordered remaining steps, the first one concrete enough to
      start on without rereading anything.
@@ -65,5 +71,8 @@ as step 4 says and do not stop, clear or notify again.
    that the handover is at that path and that `/clear` continues from it.
 
    Either way, end the turn there: work done after writing makes the handover
-   stale, and an auto-clear waits for the turn to end. When the user says to
-   carry on instead, update the file before the next stopping point.
+   stale, and an auto-clear waits for the turn to end. A completion notice
+   that wakes this context before the clear is the exception: write its
+   result into the handover, drop the task from **Running**, and end the turn
+   again, or the next context waits for a notice already spent. When the user
+   says to carry on instead, update the file before the next stopping point.
